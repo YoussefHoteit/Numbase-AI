@@ -7,7 +7,7 @@ export async function readChatBody(request: Request): Promise<unknown> {
   let sameOrigin = false;
   try {
     const source = new URL(origin ?? "");
-    // Next.js may normalize request.url to localhost behind a listener or proxy.
+    // Hosting proxies may normalize request.url to an internal listener address.
     // Compare against the incoming Host, never a client-supplied forwarded host.
     sameOrigin = source.host === request.headers.get("host") && ["http:", "https:"].includes(source.protocol);
   } catch { /* Missing or malformed origins are rejected. */ }

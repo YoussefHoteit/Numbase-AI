@@ -3,6 +3,7 @@ import { createUIMessageStreamResponse, streamText, toUIMessageStream } from "ai
 import { requestSchema } from "@/lib/chat-schema";
 import { demoResponse } from "@/lib/server/demo";
 import { readChatBody, RequestError, takeRequestSlot } from "@/lib/server/request";
+import { modelErrorMessage } from "@/lib/server/model-errors";
 export const maxDuration = 60;
 export async function POST(request: Request) {
   try {
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
     return createUIMessageStreamResponse({ headers: { "Cache-Control": "no-store" }, stream: toUIMessageStream({
       stream: result.stream, sendReasoning: false,
       messageMetadata: ({ part }) => part.type === "start" ? { modelId: model, demo: false, createdAt: Date.now() } : undefined,
-      onError: () => "The model could not respond. Please retry or choose another model.",
+      onError: modelErrorMessage,
     }) });
   } catch (error) {
     return new Response(error instanceof RequestError ? error.message : "Chat is temporarily unavailable. Please try again.",
