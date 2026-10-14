@@ -36,21 +36,36 @@ The chat function allows 60 seconds and stops provider work after 55 seconds. Th
 | Model | Provider | OpenRouter ID |
 | --- | --- | --- |
 | GPT-4.1 Mini | OpenAI | `openai/gpt-4.1-mini` |
-| GPT-4.1 | OpenAI | `openai/gpt-4.1` |
-| Claude Sonnet 4.5 | Anthropic | `anthropic/claude-sonnet-4.5` |
-| Gemini 2.5 Flash | Google | `google/gemini-2.5-flash` |
+| Claude Haiku 4.5 | Anthropic | `anthropic/claude-haiku-4.5` |
+| Gemini 2.5 Flash-Lite | Google | `google/gemini-2.5-flash-lite` |
+| Mistral Small 3.2 | Mistral | `mistralai/mistral-small-3.2-24b-instruct` |
 
-These four models cover three providers. Their allowlist and labels are in `src/lib/models.ts`. Availability, price, and capabilities are controlled by OpenRouter and the underlying providers.
+These four models cover four providers. Their allowlist and labels are in `src/lib/models.ts`. Availability, price, and capabilities are controlled by OpenRouter and the underlying providers.
+
+### Cost-conscious model selection
+
+OpenRouter catalog prices checked on **14 October 2026**, in USD per **one million tokens**:
+
+| Model | Input | Output |
+| --- | ---: | ---: |
+| GPT-4.1 Mini | $0.40 | $1.60 |
+| Claude Haiku 4.5 | $1.00 | $5.00 |
+| Gemini 2.5 Flash-Lite | $0.10 | $0.40 |
+| Mistral Small 3.2 | $0.09375 | $0.25 |
+
+Haiku replaces Sonnet 4.5 ($3 input / $15 output). Flash-Lite replaces Gemini 2.5 Flash ($0.30 / $2.50). Mistral replaces GPT-4.1 ($2 / $8) and adds another provider. Haiku is cheaper than Sonnet but still the highest-priced option in this selection; Mistral and Flash-Lite are useful for inexpensive iteration. Actual charges depend on token usage, caching, and the selected upstream provider. Check the [OpenRouter model catalog](https://openrouter.ai/api/v1/models) for current rates.
+
+Saved conversations using replaced models automatically select their budget replacement when reopened. Their messages and original response model labels remain intact. Replaced models are not offered in the selector or accepted as the target for new provider requests.
 
 ## How context survives a model switch
 
 `ChatPane` is keyed by conversation ID, not model ID. Changing the selector updates only the conversation's `model`; it does not clear the AI SDK messages. On every turn, `DefaultChatTransport` sends the selected model and the active conversation's complete text history. The server validates that history and forwards all of its user/assistant messages to the newly selected OpenRouter model.
 
-For example, the second request after switching from GPT-4.1 Mini to Claude Sonnet contains:
+For example, the second request after switching from GPT-4.1 Mini to Claude Haiku contains:
 
 ```json
 {
-  "model": "anthropic/claude-sonnet-4.5",
+  "model": "anthropic/claude-haiku-4.5",
   "messages": [
     {"id": "1", "role": "user", "parts": [{"type": "text", "text": "Remember our project codename is Cedar."}]},
     {"id": "2", "role": "assistant", "parts": [{"type": "text", "text": "I will remember Cedar."}]},
@@ -66,9 +81,9 @@ This is an illustrative request shape, not a recorded live-model result.
 After Vercel is configured for live responses:
 
 1. Select GPT-4.1 Mini and send: `Remember that our project codename is Cedar and our launch month is October.`
-2. Wait for the response, switch to Claude Sonnet 4.5, and ask: `What codename and launch month did I give you?`
+2. Wait for the response, switch to Claude Haiku 4.5, and ask: `What codename and launch month did I give you?`
 3. Confirm the response recalls **Cedar** and **October**, with a Claude label, while the previous response retains its GPT label.
-4. Switch to Gemini 2.5 Flash and ask it to summarize the same conversation. Then try GPT-4.1.
+4. Switch to Gemini 2.5 Flash-Lite and ask it to summarize the same conversation. Then try Mistral Small 3.2.
 5. Reload and reopen the conversation; verify its history and model labels remain.
 
 Demo mode tests interface behavior only. It cannot prove model recall or provider connectivity. Live-provider acceptance remains pending until the provided key is configured and this test passes. An optional 2–3 minute video can show this procedure along with themes and conversation management.

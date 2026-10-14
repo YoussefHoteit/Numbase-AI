@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { MODELS } from "./models";
+import { LEGACY_MODELS, MODELS, resolveModelId } from "./models.ts";
 import type { UIMessage } from "ai";
 export const modelSchema = z.enum(MODELS.map((model) => model.id));
-export const metadataSchema = z.object({ modelId: modelSchema, demo: z.boolean(), createdAt: z.number() });
+const historicalModelSchema = z.enum([...MODELS.map((model) => model.id), ...LEGACY_MODELS.map((model) => model.id)]);
+export const metadataSchema = z.object({ modelId: historicalModelSchema, demo: z.boolean(), createdAt: z.number() });
 export type ChatMessage = UIMessage<z.infer<typeof metadataSchema>>;
 export const messageSchema = z.object({
   id: z.string().min(1).max(128), role: z.enum(["user", "assistant"]),
@@ -17,7 +18,7 @@ export const requestSchema = z.object({ model: modelSchema, messages: z.array(me
     if (!messages.at(-1)?.parts.some((part) => part.text.trim())) context.addIssue({ code: "custom", message: "Message is empty." });
   });
 export const conversationSchema = z.object({
-  id: z.string().min(1).max(128), title: z.string().min(1).max(100), model: modelSchema,
+  id: z.string().min(1).max(128), title: z.string().min(1).max(100), model: historicalModelSchema.transform(resolveModelId),
   updatedAt: z.number(), messages: z.array(messageSchema).max(200),
 });
 export type Conversation = Omit<z.infer<typeof conversationSchema>, "messages"> & { messages: ChatMessage[] };

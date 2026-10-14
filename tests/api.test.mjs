@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const base = new URL(process.env.TEST_BASE_URL || "https://numbase-ai.vercel.app").origin;
-const models = ["openai/gpt-4.1-mini", "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash", "openai/gpt-4.1"];
+const models = ["openai/gpt-4.1-mini", "anthropic/claude-haiku-4.5", "google/gemini-2.5-flash-lite", "mistralai/mistral-small-3.2-24b-instruct"];
 const payload = (model = models[0]) => ({ model, messages: [{ id: "test-user", role: "user", parts: [{ type: "text", text: "Hello" }] }] });
 const send = (body, headers = {}) => fetch(`${base}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json", Origin: base, ...headers }, body: typeof body === "string" ? body : JSON.stringify(body) });
 
@@ -22,6 +22,8 @@ test("rejects non-JSON and malformed JSON", async () => {
 });
 test("rejects arbitrary model IDs, roles, and non-text parts", async () => {
   assert.equal((await send(payload("untrusted/model"))).status, 400);
+  for (const retired of ["anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash", "openai/gpt-4.1"])
+    assert.equal((await send(payload(retired))).status, 400);
   const body = payload(); body.messages[0].role = "system";
   assert.equal((await send(body)).status, 400);
   body.messages[0].role = "user"; body.messages[0].parts = [{ type: "file", url: "https://untrusted.example/file" }];
