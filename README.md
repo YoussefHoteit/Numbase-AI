@@ -29,7 +29,7 @@ The chat function allows 60 seconds and stops provider work after 55 seconds. Th
 - Create, search, rename, delete, and reopen conversations.
 - Switch models during a conversation while retaining its message history, including while a response is streaming. The new selection applies to the next message; an in-progress response continues with its original model and label.
 - Each response retains its producing model label after switching and reloading.
-- Desktop and mobile navigation, light/dark/system appearance, and keyboard shortcuts.
+- Desktop and mobile navigation, light/dark/system appearance, and keyboard shortcuts. The settings panel shows the saved appearance preference separately from the current display: System stays selected while following the device’s light/dark preference, and the choice persists after reloading.
 - Clear messages for rate limits, unavailable models, timeouts, connection settings, and exhausted credits.
 - Explicit sample-response demo mode when the Vercel key is not configured.
 

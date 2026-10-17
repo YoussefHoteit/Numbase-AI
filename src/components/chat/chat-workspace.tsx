@@ -12,6 +12,7 @@ import { conversations } from "@/lib/conversations";
 import { MODELS, findModel, type ModelId } from "@/lib/models";
 import { metadataSchema, type ChatMessage, type Conversation } from "@/lib/chat-schema";
 import { copyText, MessageMarkdown } from "./markdown";
+import { WorkspaceSettings } from "./workspace-settings";
 
 const transport = new DefaultChatTransport<ChatMessage>({
   api: "/api/chat",
@@ -51,7 +52,6 @@ export function ChatWorkspace() {
   const [settings, setSettings] = useState(false);
   const [edit, setEdit] = useState<{ id: string; title: string; action: "rename" | "delete" } | null>(null);
   const [config, setConfig] = useState<{ demo: boolean; enabled: boolean } | null>(null);
-  const { resolvedTheme, setTheme } = useTheme();
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => { conversations.hydrate(); }, []);
   useEffect(() => {
@@ -92,12 +92,7 @@ export function ChatWorkspace() {
     <aside className="desktop-sidebar">{sidebar}</aside>
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetContent side="left" className="mobile-sidebar-dialog"><SheetTitle className="sr-only">Your conversations</SheetTitle><SheetDescription className="sr-only">Search, open, or create a conversation.</SheetDescription>{sidebar}</SheetContent></Sheet>
     {active ? <ChatPane key={active.id} conversation={active} config={config} onOpenSidebar={() => setMobileOpen(true)} onSettings={() => setSettings(true)} /> : <main className="loading-workspace"><Brand /><span>Opening your workspace…</span></main>}
-    <Dialog open={settings} onOpenChange={setSettings}><DialogContent className="settings-dialog"><DialogTitle>Your workspace</DialogTitle><DialogDescription>A quieter place for your best ideas.</DialogDescription>
-      <div className="settings-section"><strong>Appearance</strong><div className="theme-options"><button className={resolvedTheme === "light" ? "active" : ""} onClick={() => setTheme("light")}><Sun size={17} />Light</button><button className={resolvedTheme === "dark" ? "active" : ""} onClick={() => setTheme("dark")}><Moon size={17} />Dark</button><button onClick={() => setTheme("system")}>System</button></div></div>
-      <div className="settings-section"><strong>{config?.demo ? "Demo mode" : config?.enabled ? "OpenRouter connected" : "Connection setup"}</strong><p>{config?.demo ? "Try the experience with a sample streaming response. To enable live answers, add OPENROUTER_API_KEY in the Vercel project’s Production Environment Variables and redeploy." : config?.enabled ? "Messages are sent through OpenRouter to the provider you choose. Your API key stays on the server." : "Live chat is waiting for Vercel configuration. See the project README for setup."}</p></div>
-      <div className="settings-section"><strong>Your conversations</strong><p>Chat history is saved in this browser, not synced to an account. Clearing browser data removes it. Live messages are shared with your selected model provider.</p></div>
-      <div className="settings-shortcuts"><span>Find a conversation <kbd>Ctrl / ⌘ K</kbd></span><span>New conversation <kbd>Ctrl / ⌘ ⇧ O</kbd></span></div>
-    </DialogContent></Dialog>
+    <WorkspaceSettings open={settings} onOpenChange={setSettings} config={config} />
     <Dialog open={Boolean(edit)} onOpenChange={(open) => { if (!open) setEdit(null); }}><DialogContent><DialogTitle>{edit?.action === "delete" ? "Delete conversation?" : "Rename conversation"}</DialogTitle><DialogDescription>{edit?.action === "delete" ? "This removes the conversation from this browser. This cannot be undone." : "Give this conversation a name you’ll recognize."}</DialogDescription>
       <form onSubmit={(e) => { e.preventDefault(); if (!edit) return; if (edit.action === "delete") conversations.remove(edit.id); else if (edit.title.trim()) conversations.update(edit.id, { title: edit.title.trim() }); setEdit(null); }}>
         {edit?.action === "rename" && <input className="rename-input" aria-label="Conversation name" maxLength={100} autoFocus value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />}
