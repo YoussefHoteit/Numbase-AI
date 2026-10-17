@@ -8,6 +8,8 @@ A multi-model AI chat workspace built with Next.js App Router, TypeScript, Tailw
 
 **Hosting target:** Vercel Hobby. This repository and deployment are the continuing project for future work.
 
+**Review access:** The repository is public. The live application uses Vercel Authentication for all deployments to protect the provided OpenRouter credits. Reviewers should open the application, sign in to Vercel, and request access if prompted. The project owner must approve that request. Do not disable protection or share API keys for a review.
+
 ## Vercel setup
 
 1. Import this GitHub repository into the existing Numbase AI Vercel project. Keep `main` as the production branch and use the repository root as the Root Directory.
@@ -78,15 +80,28 @@ This is an illustrative request shape, not a recorded live-model result.
 
 ### Live acceptance test
 
-After Vercel is configured for live responses:
+Use explicitly fictional data when checking context retention:
 
-1. Select GPT-4.1 Mini and send: `Remember that our project codename is Cedar and our launch month is October.`
-2. Wait for the response, switch to Claude Haiku 4.5, and ask: `What codename and launch month did I give you?`
-3. Confirm the response recalls **Cedar** and **October**, with a Claude label, while the previous response retains its GPT label.
-4. Switch to Gemini 2.5 Flash-Lite and ask it to summarize the same conversation. Then try Mistral Small 3.2.
+1. Select GPT-4.1 Mini and send: `Synthetic software test: the following is invented test data, not real personal or project information. Remember an imaginary purple otter and the number 17. Confirm both in one short sentence.`
+2. Wait for the response, switch to Claude Haiku 4.5, and ask: `What imaginary animal, color, and number did I give you earlier? Answer in one sentence using the conversation history.`
+3. Confirm the response recalls **purple**, **otter**, and **17**, with a Claude label, while the previous response retains its GPT label.
+4. Switch to Gemini 2.5 Flash-Lite and request those facts as a Markdown bullet list. Then switch to Mistral Small 3.2 and request the same facts as a fenced JSON code block.
 5. Reload and reopen the conversation; verify its history and model labels remain.
 
-Demo mode tests interface behavior only. It cannot prove model recall or provider connectivity. Live-provider acceptance remains pending until the provided key is configured and this test passes. An optional 2–3 minute video can show this procedure along with themes and conversation management.
+### Recorded live results — 17 October 2026
+
+The provided key was configured as a Production Secret in Vercel and the production deployment completed successfully. All four requests below used real OpenRouter responses in the same conversation, with no demo labels:
+
+| Selected model | Observed result |
+| --- | --- |
+| GPT-4.1 Mini | Confirmed the imaginary purple otter and number 17. |
+| Claude Haiku 4.5 | Recalled the purple otter and 17 after switching from GPT, without repeating the facts in the new prompt. |
+| Gemini 2.5 Flash-Lite | Recalled all three facts and rendered them as a Markdown bullet list. |
+| Mistral Small 3.2 | Returned a rendered JSON code block containing `animal: otter`, `color: purple`, and `number: 17`. Streaming was visible during generation. |
+
+The conversation was renamed, reloaded, and reopened. All eight messages and their original response model labels remained intact. The saved browser conversation is named **Live four-provider test - 17 October**; it is a local test record, not a conversation shared with other browsers.
+
+Demo mode tests interface behavior only. The recorded test above establishes live provider connectivity and cross-provider recall at the time tested. It does not guarantee future provider availability. An optional 2–3 minute video can show this procedure along with themes and conversation management.
 
 ## Checks
 
@@ -98,7 +113,9 @@ npm run test:unit
 npm run test:api
 ```
 
-The API suite targets the deployed application by default. Set `TEST_BASE_URL` only when checking another Vercel deployment. It verifies configuration safety, origin checks, validation, payload limits, and sample streaming. Sample-response tests are explicitly skipped when the target is live, so the suite never intentionally spends model credits. The live acceptance test above is separate.
+The API suite targets the deployed application by default. Set `TEST_BASE_URL` only when checking another Vercel deployment. On a protected deployment, it verifies that unauthenticated chat requests are blocked and explicitly skips checks requiring sign-in. It does not bypass authentication or report those skipped checks as passed. On an accessible deployment it checks configuration safety, origin checks, validation, payload limits, and sample streaming. Sample-response tests are skipped when the target is live, so the suite never intentionally spends model credits. The live acceptance test above is separate.
+
+The unit suite checks the real model catalog, saved-history migration, safe provider errors, origins, content types, request size limits, message validation, and the rate limiter without requiring credentials. Node.js 22 type transformation is used for these TypeScript modules; its experimental warnings do not indicate test failures.
 
 ## Architecture and security
 
@@ -119,7 +136,7 @@ The key is read only by server routes. Client-supplied system roles, arbitrary m
 - Requests are limited to 128 KB, 100 messages, 32,000 characters per text part, and 64,000 total conversation characters. History is not silently trimmed. At the limit, start a new conversation; automatic summarization is future work.
 - Model output is capped at 4,096 tokens. The supplied assignment key expires after one month and must be renewed or removed in Vercel when it expires.
 - The included limiter permits 20 valid requests per minute per server process. It is not a shared per-user limit across Vercel instances. Origin checks are CSRF protection, not authentication. Configure cost limits before enabling paid public usage.
-- The UI and demo API can be verified without a key. Provider availability, provider rate limits, and cross-provider recall still require live testing.
-- The GitHub repository must be public or shared with the reviewer before submission. Deadline: **23 October 2026**.
+- Live connectivity and cross-provider recall passed for all four selected models on 17 October 2026. Error mapping and the application rate limiter are tested without deliberately exhausting live credits or forcing an upstream outage. Provider availability and limits can change.
+- The GitHub repository is public. The protected live deployment still requires reviewer access approval through Vercel. Deadline: **23 October 2026**.
 
 Review compatible dependency updates instead of using `npm audit fix --force`.

@@ -5,8 +5,22 @@ const base = new URL(process.env.TEST_BASE_URL || "https://numbase-ai.vercel.app
 const models = ["openai/gpt-4.1-mini", "anthropic/claude-haiku-4.5", "google/gemini-2.5-flash-lite", "mistralai/mistral-small-3.2-24b-instruct"];
 const payload = (model = models[0]) => ({ model, messages: [{ id: "test-user", role: "user", parts: [{ type: "text", text: "Hello" }] }] });
 const send = (body, headers = {}) => fetch(`${base}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json", Origin: base, ...headers }, body: typeof body === "string" ? body : JSON.stringify(body) });
+const preflight = await fetch(`${base}/api/config`, { redirect: "manual" });
+const requiresSignIn = (response) => [401, 403].includes(response.status) ||
+  ([302, 303, 307, 308].includes(response.status) && new URL(response.headers.get("location") || "/", base).hostname === "vercel.com");
+const protectedDeployment = requiresSignIn(preflight);
+const appTest = (name, run) => test(name, { skip: protectedDeployment ? "Vercel Authentication is enabled; run application checks in an authorized browser." : false }, run);
 
-test("configuration exposes no credentials and identifies demo mode", async () => {
+test("protected deployments reject unauthenticated chat requests", async (t) => {
+  if (!protectedDeployment) { t.skip("This deployment does not require Vercel Authentication."); return; }
+  const response = await fetch(`${base}/api/chat`, {
+    method: "POST", redirect: "manual", headers: { "Content-Type": "application/json", Origin: base },
+    body: JSON.stringify({ model: "untrusted/model", messages: [] }),
+  });
+  assert.ok(requiresSignIn(response), "The chat endpoint must require authentication too.");
+});
+
+appTest("configuration exposes no credentials and identifies demo mode", async () => {
   const response = await fetch(`${base}/api/config`);
   assert.equal(response.status, 200);
   const config = await response.json();
@@ -15,12 +29,12 @@ test("configuration exposes no credentials and identifies demo mode", async () =
   assert.equal(typeof config.enabled, "boolean");
   assert.match(response.headers.get("cache-control"), /no-store/);
 });
-test("rejects cross-origin requests", async () => { assert.equal((await send(payload(), { Origin: "https://untrusted.example" })).status, 403); });
-test("rejects non-JSON and malformed JSON", async () => {
+appTest("rejects cross-origin requests", async () => { assert.equal((await send(payload(), { Origin: "https://untrusted.example" })).status, 403); });
+appTest("rejects non-JSON and malformed JSON", async () => {
   assert.equal((await send(payload(), { "Content-Type": "text/plain" })).status, 415);
   assert.equal((await send("{broken")).status, 400);
 });
-test("rejects arbitrary model IDs, roles, and non-text parts", async () => {
+appTest("rejects arbitrary model IDs, roles, and non-text parts", async () => {
   assert.equal((await send(payload("untrusted/model"))).status, 400);
   for (const retired of ["anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash", "openai/gpt-4.1"])
     assert.equal((await send(payload(retired))).status, 400);
@@ -29,7 +43,7 @@ test("rejects arbitrary model IDs, roles, and non-text parts", async () => {
   body.messages[0].role = "user"; body.messages[0].parts = [{ type: "file", url: "https://untrusted.example/file" }];
   assert.equal((await send(body)).status, 400);
 });
-test("rejects empty, excessive, and oversized messages", async () => {
+appTest("rejects empty, excessive, and oversized messages", async () => {
   const body = payload(); body.messages[0].parts[0].text = "   ";
   assert.equal((await send(body)).status, 400);
   body.messages[0].parts[0].text = "x".repeat(32_001);
@@ -38,7 +52,7 @@ test("rejects empty, excessive, and oversized messages", async () => {
   assert.equal((await send(body)).status, 400);
   assert.equal((await send("x".repeat(128_001))).status, 413);
 });
-test("streams labeled sample responses for all four models", async (t) => {
+appTest("streams labeled sample responses for all four models", async (t) => {
   const config = await (await fetch(`${base}/api/config`)).json();
   if (!config.demo) { t.skip("Live deployment: sample tests never spend provider credits."); return; }
   for (const model of models) {
