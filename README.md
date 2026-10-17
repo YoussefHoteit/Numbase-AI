@@ -27,7 +27,7 @@ The chat function allows 60 seconds and stops provider work after 55 seconds. Th
 - Streamed responses with stop, retry, regenerate, and copy controls.
 - Markdown, tables, highlighted code blocks, and code copying.
 - Create, search, rename, delete, and reopen conversations.
-- Switch models during a conversation while retaining its message history.
+- Switch models during a conversation while retaining its message history, including while a response is streaming. The new selection applies to the next message; an in-progress response continues with its original model and label.
 - Each response retains its producing model label after switching and reloading.
 - Desktop and mobile navigation, light/dark/system appearance, and keyboard shortcuts.
 - Clear messages for rate limits, unavailable models, timeouts, connection settings, and exhausted credits.
@@ -62,6 +62,8 @@ Saved conversations using replaced models automatically select their budget repl
 ## How context survives a model switch
 
 `ChatPane` is keyed by conversation ID, not model ID. Changing the selector updates only the conversation's `model`; it does not clear the AI SDK messages. On every turn, `DefaultChatTransport` sends the selected model and the active conversation's complete text history. The server validates that history and forwards all of its user/assistant messages to the newly selected OpenRouter model.
+
+The model selector remains available during generation. Selecting another model does not interrupt or relabel the current response. Send the next message after the response finishes, or use Stop first; that next request uses the selected model with the same conversation history.
 
 For example, the second request after switching from GPT-4.1 Mini to Claude Haiku contains:
 

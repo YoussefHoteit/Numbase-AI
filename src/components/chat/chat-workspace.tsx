@@ -32,12 +32,12 @@ function Brand({ small = false }: { small?: boolean }) {
   return <span className={`brand-mark ${small ? "small" : ""}`} aria-hidden="true"><span /><span /><span /></span>;
 }
 
-function ModelPicker({ value, onChange, disabled }: { value: ModelId; onChange: (model: ModelId) => void; disabled?: boolean }) {
+function ModelPicker({ value, onChange }: { value: ModelId; onChange: (model: ModelId) => void }) {
   const model = findModel(value)!;
-  return <DropdownMenu><DropdownMenuTrigger className="model-trigger" disabled={disabled} aria-label={`Select model, current: ${model.name}`}>
+  return <DropdownMenu><DropdownMenuTrigger className="model-trigger" aria-label={`Select model, current: ${model.name}`}>
     <span className={`provider-mark ${model.color}`}>{model.mark}</span><span>{model.name}</span><ChevronDown size={15} />
   </DropdownMenuTrigger><DropdownMenuContent className="model-menu" sideOffset={12}>
-    <div className="menu-heading">CHOOSE YOUR MODEL<span>One conversation. More possibilities.</span></div>
+    <div className="menu-heading">CHOOSE YOUR MODEL<span>Your next reply keeps this chat’s history.</span></div>
     {MODELS.map((item) => <DropdownMenuItem className="model-option" key={item.id} onClick={() => onChange(item.id)}>
       <span className={`provider-mark ${item.color}`}>{item.mark}</span><span className="model-option-copy"><strong>{item.name}</strong><small>{item.provider} · {item.description}</small></span>{item.id === value && <Check size={16} />}
     </DropdownMenuItem>)}
@@ -129,7 +129,7 @@ function ChatPane({ conversation, config, onOpenSidebar, onSettings }: { convers
     void sendMessage({ text }, { body: { model: conversation.model } });
   };
   return <main className="chat-main">
-    <header className="chat-header"><div className="header-left"><button className="icon-button mobile-menu-toggle" aria-label="Open conversations" onClick={onOpenSidebar}><PanelLeft size={20} /></button><ModelPicker value={conversation.model} onChange={(model) => conversations.setModel(conversation.id, model)} disabled={busy} /><span className="header-divider" /><span className="header-subtitle">Your space to think</span></div><div className="header-right"><button className={`connection-badge ${config?.demo ? "demo" : ""}`} onClick={onSettings}><span />{config ? config.demo ? "Demo mode" : config.enabled ? "Connected" : "Setup needed" : "Workspace"}</button><button className="icon-button theme-toggle" aria-label="Toggle color theme" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}><Sun className="sun-icon" size={18} /><Moon className="moon-icon" size={18} /></button></div></header>
+    <header className="chat-header"><div className="header-left"><button className="icon-button mobile-menu-toggle" aria-label="Open conversations" onClick={onOpenSidebar}><PanelLeft size={20} /></button><ModelPicker value={conversation.model} onChange={(model) => conversations.setModel(conversation.id, model)} /><span className="header-divider" /><span className="header-subtitle">Your space to think</span></div><div className="header-right"><button className={`connection-badge ${config?.demo ? "demo" : ""}`} onClick={onSettings}><span />{config ? config.demo ? "Demo mode" : config.enabled ? "Connected" : "Setup needed" : "Workspace"}</button><button className="icon-button theme-toggle" aria-label="Toggle color theme" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}><Sun className="sun-icon" size={18} /><Moon className="moon-icon" size={18} /></button></div></header>
     <div className={`chat-scroll ${messages.length ? "has-messages" : ""}`} ref={scroller} onScroll={() => { const element = scroller.current; if (element) setNearBottom(element.scrollHeight - element.scrollTop - element.clientHeight < 140); }}>
       {messages.length === 0 ? <section className="welcome"><div className="welcome-eyebrow"><span />A WORLD OF IDEAS, ONE CONVERSATION</div><Brand /><h1>Where should we<br /><span>take your mind today?</span></h1><p>A question, a spark, a half-formed idea.<br className="mobile-break" /> Let’s make something of it.</p>
         <div className="suggestion-grid">{suggestions.map(({ icon: Icon, title, text, prompt }) => <button className="suggestion-card" key={title} onClick={() => { setInput(prompt); textarea.current?.focus(); }}><div><span className="suggestion-icon"><Icon size={19} strokeWidth={1.6} /></span><ArrowUpRight size={15} className="suggestion-arrow" /></div><strong>{title}</strong><span>{text}</span></button>)}</div>
