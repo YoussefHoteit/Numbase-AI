@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
 import { useTheme } from "next-themes";
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, ChevronDown, Code2, Copy, Feather, Globe2, Lightbulb, Loader2, MessageSquare, Moon, MoreHorizontal, PanelLeft, Pencil, Plus, RotateCcw, Search, SlidersHorizontal, Sparkles, Square, Sun, Trash2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -13,15 +12,9 @@ import { MODELS, findModel, type ModelId } from "@/lib/models";
 import { metadataSchema, type ChatMessage, type Conversation } from "@/lib/chat-schema";
 import { copyText, MessageMarkdown } from "./markdown";
 import { WorkspaceSettings } from "./workspace-settings";
+import { createChatTransport } from "@/lib/chat-transport";
 
-const transport = new DefaultChatTransport<ChatMessage>({
-  api: "/api/chat",
-  prepareSendMessagesRequest: ({ messages, body, id }) => ({ body: {
-    ...body, id,
-    messages: messages.map((message) => ({ ...message, parts: message.parts.filter((part) => part.type === "text") }))
-      .filter((message) => message.parts.length > 0),
-  } }),
-});
+const transport = createChatTransport();
 const suggestions = [
   { icon: Feather, title: "Find the right words", text: "Draft a thoughtful email, story, or pitch", prompt: "Help me write a clear, thoughtful email. Ask me who it is for and what I want to say." },
   { icon: Code2, title: "Build something useful", text: "Turn a problem into a working solution", prompt: "Help me turn an idea into a small coding project. Ask about my idea and experience first." },
@@ -103,7 +96,10 @@ export function ChatWorkspace() {
 }
 
 function ChatPane({ conversation, config, onOpenSidebar, onSettings }: { conversation: Conversation; config: { demo: boolean; enabled: boolean } | null; onOpenSidebar: () => void; onSettings: () => void }) {
-  const { messages, sendMessage, status, error, stop, regenerate, clearError } = useChat<ChatMessage>({ id: conversation.id, messages: conversation.messages, transport, messageMetadataSchema: metadataSchema, throttle: 50 });
+  const { messages, sendMessage, status, error, stop, regenerate, clearError } = useChat<ChatMessage>({
+    id: conversation.id, messages: conversation.messages, transport, messageMetadataSchema: metadataSchema, throttle: 50,
+    onFinish: ({ messages: completedMessages }) => { conversations.saveMessages(conversation.id, completedMessages); },
+  });
   const [input, setInput] = useState("");
   const [nearBottom, setNearBottom] = useState(true);
   const { resolvedTheme, setTheme } = useTheme();

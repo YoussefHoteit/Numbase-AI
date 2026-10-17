@@ -1,8 +1,9 @@
 "use client";
 import { z } from "zod";
 import { toast } from "sonner";
-import { conversationSchema, type Conversation, type ChatMessage } from "./chat-schema";
-import { DEFAULT_MODEL, type ModelId } from "./models";
+import { conversationSchema, type Conversation, type ChatMessage } from "./chat-schema.ts";
+import { DEFAULT_MODEL, type ModelId } from "./models.ts";
+import { snapshotTextMessages } from "./chat-history.ts";
 const KEY = "numbase.conversations.v1";
 const schema = z.object({ version: z.literal(1), activeId: z.string(), conversations: z.array(conversationSchema) });
 type State = { ready: boolean; activeId: string; conversations: Conversation[] };
@@ -55,8 +56,7 @@ export const conversations = {
     const current = state.conversations.find((c) => c.id === id);
     const first = messages.find((m) => m.role === "user")?.parts.find((p) => p.type === "text");
     const title = current?.title === "New conversation" && first?.type === "text" ? first.text.trim().slice(0, 60) : current?.title;
-    const savedMessages = messages.map((message) => ({ ...message, parts: message.parts.filter((part) => part.type === "text") }))
-      .filter((message) => message.parts.length > 0);
+    const savedMessages = snapshotTextMessages(messages);
     if (JSON.stringify(current?.messages) === JSON.stringify(savedMessages)) return;
     this.update(id, { messages: savedMessages, ...(title ? { title } : {}) });
   },

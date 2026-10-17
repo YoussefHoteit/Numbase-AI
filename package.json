@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:api": "node --test tests/api.test.mjs",
-    "test:unit": "node --experimental-transform-types --test tests/model-errors.test.mjs tests/model-catalog.test.mjs tests/server-request.test.mjs"
+    "test:unit": "node --experimental-transform-types --test tests/model-errors.test.mjs tests/model-catalog.test.mjs tests/server-request.test.mjs tests/conversation-memory.test.mjs",
+    "test:memory": "node --experimental-transform-types --test tests/conversation-memory.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.141",

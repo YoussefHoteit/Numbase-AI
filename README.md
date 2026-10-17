@@ -15,7 +15,7 @@ A multi-model chat application built for the Numbase internship assignment.
 
 The chat interface sends the selected model and the complete conversation text to `/api/chat`. The server validates the request, calls OpenRouter, and streams the response through the Vercel AI SDK. API keys are read only on the server from Vercel environment variables.
 
-Conversations are stored in the browser. Switching models keeps the same user and assistant messages; the new selection applies to the next reply. Each response retains its original model label.
+Conversations are stored as independent text snapshots in the browser, with a final save when streaming finishes. Switching models keeps the same user and assistant messages; the new selection applies to the next reply. The server instructs each model to use this supplied history, and each response retains its original model label.
 
 **Live context check:** Details introduced with GPT-4.1 Mini—an imaginary purple otter and the number 17—were correctly recalled after switching to Claude, Gemini, and Mistral without repeating those details in the follow-up prompts.
 
@@ -55,6 +55,8 @@ npm run test:api
 ```
 
 The API suite targets the deployed URL. Checks requiring sign-in are explicitly skipped when deployment protection is enabled.
+
+`npm run test:memory` separately runs deterministic same-model, cross-model, persistence, and actual SDK payload checks using mocked OpenRouter responses; it needs no key and spends no credits.
 
 ## Known limitations
 
