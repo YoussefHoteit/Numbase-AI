@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
@@ -19,8 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Numbase AI | Multi-Model Chat",
-  description:
-    "A multi-model AI chat application powered by OpenRouter.",
+  description: "A multi-model AI chat application powered by OpenRouter.",
 };
 
 export default function RootLayout({
@@ -39,10 +37,8 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider>
-            {children}
-            <Toaster />
-          </TooltipProvider>
+          {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

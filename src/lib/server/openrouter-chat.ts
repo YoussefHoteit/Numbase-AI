@@ -1,5 +1,9 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { createUIMessageStreamResponse, streamText, toUIMessageStream } from "ai";
+import {
+  createUIMessageStreamResponse,
+  streamText,
+  toUIMessageStream,
+} from "ai";
 import type { ChatMessage } from "../chat-schema.ts";
 import { toModelMessages } from "../chat-history.ts";
 import type { ModelId } from "../models.ts";
@@ -13,7 +17,13 @@ const INSTRUCTIONS = [
   "If a requested detail is absent from the supplied messages, say so; never invent remembered information.",
 ].join(" ");
 
-export function streamOpenRouterResponse({ model, messages, signal, apiKey, fetch }: {
+export function streamOpenRouterResponse({
+  model,
+  messages,
+  signal,
+  apiKey,
+  fetch,
+}: {
   model: ModelId;
   messages: ChatMessage[];
   signal: AbortSignal;
@@ -34,7 +44,10 @@ export function streamOpenRouterResponse({ model, messages, signal, apiKey, fetc
     stream: toUIMessageStream({
       stream: result.stream,
       sendReasoning: false,
-      messageMetadata: ({ part }) => part.type === "start" ? { modelId: model, demo: false, createdAt: Date.now() } : undefined,
+      messageMetadata: ({ part }) =>
+        part.type === "start"
+          ? { modelId: model, demo: false, createdAt: Date.now() }
+          : undefined,
       onError: modelErrorMessage,
     }),
   });
