@@ -18,6 +18,7 @@ const INSTRUCTIONS = [
   "Use the supplied conversation history to answer follow-up questions and recall details stated earlier in it.",
   "Distinguish this provided context from persistent memory across separate chats: do not claim that earlier messages are inaccessible when they are present here.",
   "If a requested detail is absent from the supplied messages, say so; never invent remembered information.",
+  "Use internal image asset identifiers only in tool arguments; do not show identifiers or private asset URLs in your answers.",
 ].join(" ");
 
 export function streamOpenRouterResponse({

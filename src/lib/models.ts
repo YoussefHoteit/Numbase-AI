@@ -33,17 +33,22 @@ export const MODELS = [
     id: "mistralai/mistral-small-3.2-24b-instruct",
     name: "Mistral Small 3.2",
     provider: "Mistral",
-    description: "Low-cost multilingual chat",
+    description: "Multilingual chat · Up to 5 images",
     color: "clay",
     mark: "M",
     vision: true,
     tools: true,
+    maxImages: 5,
   },
 ] as const;
 export type ModelId = (typeof MODELS)[number]["id"];
 export const DEFAULT_MODEL: ModelId = MODELS[0].id;
 export function supportsImages(id: string) {
   return MODELS.find((model) => model.id === id)?.vision === true;
+}
+export function imageLimit(id: string): number | undefined {
+  const model = MODELS.find((entry) => entry.id === id);
+  return model && "maxImages" in model ? model.maxImages : undefined;
 }
 
 // Retain historical labels without offering retired models for new requests.

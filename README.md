@@ -42,5 +42,6 @@ Optional generation/editing uses `google/gemini-3.1-flash-image` separately from
 - Browser-local conversations have no account sync. Clearing cookies or rotating the session secret removes access to that anonymous session's images. Deleting a chat does not yet delete stored files.
 - History is limited to 100 messages/64,000 characters; output to 4,096 tokens. Automatic trimming is not implemented. Slow image/tool requests can time out.
 - Four attachments per message, 5 MB/20 megapixels each; twelve image-bearing parts per request. No animated images, SVG, video, or masked inpainting. Vision/OCR can be inaccurate.
+- Mistral supports up to five unique images per request. For larger image histories, choose another vision model; the app keeps every image instead of silently removing context.
 - Production generation reserves at most five jobs per session/day and twenty globally/day; these are operation limits, not currency caps. Failed or uncertain jobs count and have no automatic paid retry.
 - Text rate limiting is per process. Requests use the configured key’s credits; generation has shared daily quotas, but these are not a currency spending cap. Provider availability, credits, key expiry, and Supabase free-tier limits still apply. Demo mode performs no real image analysis or generation.

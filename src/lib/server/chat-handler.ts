@@ -9,7 +9,7 @@ import { streamOpenRouterResponse } from "./openrouter-chat.ts";
 import { imageIds } from "../chat-history.ts";
 import { mediaSession } from "./media-session.ts";
 import { multimodalHistory } from "./multimodal-history.ts";
-import { supportsImages } from "../models.ts";
+import { findModel, imageLimit, supportsImages } from "../models.ts";
 import { liveRequestsEnabled, mediaAvailable, requireMedia } from "./media-config.ts";
 export async function handleChat(request: Request, fetch?: typeof globalThis.fetch) {
   try {
@@ -34,6 +34,12 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       );
     const ids = imageIds(messages);
     if (!id && ids.length) throw new RequestError("A conversation ID is required for images.", 400);
+    const limit = imageLimit(model);
+    if (limit !== undefined && ids.length > limit)
+      throw new RequestError(
+        `${findModel(model)!.name} supports up to ${limit} images per request. This chat contains ${ids.length}. Choose another vision model to keep all image context. Your history is still saved.`,
+        400,
+      );
     // Never discard image history silently when media configuration is unavailable.
     if (ids.length) requireMedia();
     const session = id && mediaAvailable() ? mediaSession(request, true) : undefined;

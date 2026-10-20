@@ -26,11 +26,11 @@ function configure({ storage = false, secret = false, protectedDeployment = true
   if (secret) process.env.NUMBASE_SESSION_SECRET = "synthetic-session-secret-for-tests-only";
 }
 
-function request(messages = history, cookie) {
+function request(messages = history, cookie, model = "anthropic/claude-haiku-4.5") {
   return new Request(origin + "/api/chat", {
     method: "POST",
     headers: { origin, host: new URL(origin).host, "Content-Type": "application/json", ...(cookie ? { cookie } : {}) },
-    body: JSON.stringify({ id: "same-conversation", model: "anthropic/claude-haiku-4.5", messages }),
+    body: JSON.stringify({ id: "same-conversation", model, messages }),
   });
 }
 
@@ -124,4 +124,19 @@ test("public media still requires private storage and a signed session secret", 
   assert.equal(chatConfig().images, true);
   assert.equal(chatConfig().generation, true);
   assert.doesNotThrow(assertMediaEnabled);
+});
+
+test("Mistral's image limit rejects a larger history clearly before storage or provider calls", async () => {
+  configure({ storage: true, secret: true });
+  const messages = Array.from({ length: 4 }, (_, index) => ({
+    id: `images-${index}`, role: "user", parts: [
+      { type: "text", text: "Keep these images in our conversation." },
+      ...Array.from({ length: 2 }, () => ({ type: "file", mediaType: "image/png", url: `/api/assets/${crypto.randomUUID()}` })),
+    ],
+  }));
+  const before = JSON.stringify(messages);
+  const response = await handleChat(request(messages, undefined, "mistralai/mistral-small-3.2-24b-instruct"), () => assert.fail("No provider request is allowed."));
+  assert.equal(response.status, 400);
+  assert.match(await response.text(), /up to 5 images.*contains 8.*Choose another vision model.*history is still saved/);
+  assert.equal(JSON.stringify(messages), before);
 });

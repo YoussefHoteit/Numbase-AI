@@ -79,3 +79,10 @@ Production build, lint, dependency audit, source preservation, and the final tra
 The release retains Vercel Authentication at the project owner’s request. Public access remains explicitly disabled unless the separate server flag is deliberately set. Two additional regressions cover optional public access and media readiness; the full deterministic suite now passes 76 tests. Production build, TypeScript, lint, and the production dependency audit also passed for the release copy. The original projects and earlier reviewed candidate remain unchanged.
 
 The public, no-login acceptance criterion remains outstanding while production is protected. Existing private storage is reused; no duplicate Supabase project, bucket, or tables were created.
+
+
+### Live multimodal acceptance and provider limits
+
+The protected production deployment passed upload, image description/OCR/comparison with Gemini 2.5 Flash-Lite and Claude Haiku 4.5, text/reference generation, editing, variations, regeneration, and original PNG download. Five successful generation jobs and their private asset records were checked: edits/variations targeted the selected version, and regeneration restored the original prompt and reference parameters. All five generated versions survived reload.
+
+A larger history revealed Mistral’s provider limit of five images per request. The application now checks this before making a provider call, explains the limit, and keeps all history for switching to another vision model. The regression suite includes this case and now passes 77 tests.
