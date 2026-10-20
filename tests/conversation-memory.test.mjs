@@ -14,7 +14,7 @@ import { streamOpenRouterResponse } from "../src/lib/server/openrouter-chat.ts";
 const GPT = "openai/gpt-4.1-mini";
 const GEMINI = "google/gemini-2.5-flash-lite";
 const MISTRAL = "mistralai/mistral-small-3.2-24b-instruct";
-const KEY = "numbase.conversations.v1";
+const KEY = "numbase.conversations.v2";
 const origin = "https://numbase-ai.vercel.app";
 // Public synthetic fixtures, not real credentials or private project data.
 const seed =
@@ -365,4 +365,15 @@ test("a request without the fixture never acquires facts from another conversati
   assert.match(await send(h, MISTRAL, recall), /absent/);
   assert.equal(h.clientPayloads[0].messages.length, 1);
   assert.ok(!JSON.stringify(h.upstreamPayloads[0].messages).includes("84729"));
+});
+
+test("v1 chats migrate into v2 without removing the original recovery copy", async () => {
+  const storage = memoryStorage();
+  const legacy = JSON.stringify({ version: 1, activeId: "legacy-chat", conversations: [{ id: "legacy-chat", title: "Previous conversation", model: GPT, updatedAt: 1, messages: [user("legacy-user", seed)] }] });
+  storage.setItem("numbase.conversations.v1", legacy);
+  const store = await loadStore(storage);
+  assert.equal(store.getSnapshot().activeId, "legacy-chat");
+  assert.equal(textOf(store.getSnapshot().conversations[0].messages[0]), seed);
+  assert.equal(JSON.parse(storage.getItem(KEY)).version, 2);
+  assert.equal(storage.getItem("numbase.conversations.v1"), legacy);
 });

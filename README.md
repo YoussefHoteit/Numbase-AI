@@ -1,68 +1,46 @@
 # Numbase AI
 
-A multi-model chat application built for the Numbase internship assignment.
+A multi-model chat application built with Next.js App Router, React, TypeScript, Tailwind CSS 4, and shadcn/ui (Base UI). The Vercel AI SDK streams responses from OpenRouter through server routes. Markdown uses react-markdown with syntax highlighting; next-themes handles appearance. Conversations live in browser storage, while private image files and generation records use Supabase.
 
-**Live deployment:** [numbase-ai.vercel.app](https://numbase-ai.vercel.app/)
+Live application: [numbase-ai.vercel.app](https://numbase-ai.vercel.app/).
 
-## Tech stack
+## Setup
 
-- **Frontend:** Next.js App Router, React, TypeScript, Tailwind CSS 4, and shadcn/ui with Base UI.
-- **AI integration:** Vercel AI SDK and OpenRouter.
-- **Rendering and themes:** react-markdown, remark-gfm, rehype-highlight, and next-themes.
-- **Storage and hosting:** Browser localStorage and Vercel Hobby.
+1. Install Node.js 22+, clone the repository, and run `npm ci`. Run `npm run dev` for the local interface; without a provider key it shows labeled demo responses.
+2. Reuse the existing GitHub repository and Vercel Hobby project. Set `OPENROUTER_API_KEY` only in Vercel's server environment variables. Never commit keys or prefix secrets with `NEXT_PUBLIC_`.
+3. Keep Vercel Authentication enabled and set `NUMBASE_DEPLOYMENT_PROTECTED=true` in Production. This flag acknowledges the separate Vercel access control; it does not implement authentication. Public access is a separate, explicit deployment choice.
+4. Images are optional. Reuse the already provisioned private Supabase project and `numbase-images` bucket. Configure server-only `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and a stable `NUMBASE_SESSION_SECRET` of at least 32 characters. The versioned SQL is in `supabase/migrations/001_private_media.sql`; do not rerun it or create duplicate infrastructure for the existing setup.
+5. Set `NUMBASE_IMAGE_GENERATION_ENABLED=true` to allow paid generation, or `false` to keep upload and vision chat without generation. Redeploy after changing environment variables.
 
-## How it was built
+Text chat works without media configuration. Images require both private storage and signed sessions in production; unavailable image features return a clear error. Development supports separate local media storage.
 
-The chat interface sends the selected model and the complete conversation text to `/api/chat`. The server validates the request, calls OpenRouter, and streams the response through the Vercel AI SDK. API keys are read only on the server from Vercel environment variables.
+Verify with `npm run test:unit`, `npm run lint`, and `npm run build`. Detailed test history and HTTP checks are in [docs/testing.md](docs/testing.md).
 
-Conversations are stored as independent text snapshots in the browser, with a final save when streaming finishes. Switching models keeps the same user and assistant messages; the new selection applies to the next reply. The server instructs each model to use this supplied history, and each response retains its original model label.
+## Features
 
-**Live context check:** Details introduced with GPT-4.1 Mini—an imaginary purple otter and the number 17—were correctly recalled after switching to Claude, Gemini, and Mistral without repeating those details in the follow-up prompts.
+- Streaming responses, stop/retry/regenerate, Markdown, tables, highlighted code, and copying.
+- Create, search, rename, delete, and reopen conversations; recover interrupted tool requests without losing other chats; light, dark, and system themes; responsive layouts.
+- Switch models mid-chat while resending the conversation's text and image context. Earlier replies retain their model labels. Browser history migrates from v1 to v2 while preserving the old recovery copy.
+- JPEG/PNG/WebP attachments through the picker, clipboard paste, or drag-and-drop; removable previews, enlargement, vision questions, OCR, and comparisons.
+- Optional model-triggered image generation, editing, variations, regeneration, and downloads. Original versions remain available; durable jobs prevent duplicate generation for the same turn and support interrupted-result recovery.
+- Server validation, ownership checks, rate limits, private signed uploads, and safe provider errors. Browser history contains stable image references rather than embedded image data or expiring links.
 
-## Features implemented
+## Models
 
-- Streaming responses with stop, retry, regenerate, and copy controls.
-- Markdown, tables, syntax-highlighted code blocks, and code copying.
-- Create, search, rename, delete, and reopen conversations.
-- Model switching with full conversation history and per-response model labels.
-- Responsive desktop/mobile layouts with light, dark, and system themes.
-- Request validation, size limits, rate limiting, and clear connection/provider errors.
-
-## Models used
-
-| Provider | Model | OpenRouter ID |
+| Provider | Chat model | OpenRouter ID |
 | --- | --- | --- |
 | OpenAI | GPT-4.1 Mini | `openai/gpt-4.1-mini` |
 | Anthropic | Claude Haiku 4.5 | `anthropic/claude-haiku-4.5` |
 | Google | Gemini 2.5 Flash-Lite | `google/gemini-2.5-flash-lite` |
 | Mistral | Mistral Small 3.2 | `mistralai/mistral-small-3.2-24b-instruct` |
 
-## Setup
-
-1. Install Node.js 22 or newer, clone the repository, and run `npm ci`.
-2. Import the repository into Vercel using the Next.js preset and repository root.
-3. Add `OPENROUTER_API_KEY` to Vercel's **Production Environment Variables**. Keep the key only in Vercel; never add it to project files or client-side variables.
-4. Enable **Vercel Authentication → All Deployments**, including production, then set `NUMBASE_DEPLOYMENT_PROTECTED=true` in Production.
-5. Deploy `main`. Redeploy after changing environment variables.
-
-To check the source and build:
-
-```sh
-npm run lint
-npm run build
-npm run test:unit
-npm run test:api
-```
-
-The API suite targets the deployed URL. Checks requiring sign-in are explicitly skipped when deployment protection is enabled.
-
-`npm run test:memory` separately runs deterministic same-model, cross-model, persistence, and actual SDK payload checks using mocked OpenRouter responses; it needs no key and spends no credits.
+Optional generation/editing uses `google/gemini-3.1-flash-image` separately from the four chat models.
 
 ## Known limitations
 
-- History is local to the current browser; there is no account sync or database.
-- Long conversations are limited to 100 messages and 64,000 characters. Automatic history trimming is not implemented.
-- Responses are capped at 4,096 output tokens and a 55-second provider timeout.
-- Rate limiting is per server process, rather than shared across deployment instances.
-- Model availability, credits, and the assignment key's one-month expiry can affect responses. Without a key, the app returns labeled sample responses.
-- The deployed app requires approved Vercel access for testing.
+- Production currently requires approved Vercel access. This does not meet the assignment’s public, no-login submission requirement.
+- Browser-local conversations have no account sync. Clearing cookies or rotating the session secret removes access to that anonymous session's images. Deleting a chat does not yet delete stored files.
+- History is limited to 100 messages/64,000 characters; output to 4,096 tokens. Automatic trimming is not implemented. Slow image/tool requests can time out.
+- Four attachments per message, 5 MB/20 megapixels each; twelve image-bearing parts per request. No animated images, SVG, video, or masked inpainting. Vision/OCR can be inaccurate.
+- Production generation reserves at most five jobs per session/day and twenty globally/day; these are operation limits, not currency caps. Failed or uncertain jobs count and have no automatic paid retry.
+- Text rate limiting is per process. Requests use the configured key’s credits; generation has shared daily quotas, but these are not a currency spending cap. Provider availability, credits, key expiry, and Supabase free-tier limits still apply. Demo mode performs no real image analysis or generation.

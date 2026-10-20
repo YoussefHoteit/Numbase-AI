@@ -63,7 +63,7 @@ appTest(
     const response = await fetch(`${base}/api/config`);
     assert.equal(response.status, 200);
     const config = await response.json();
-    assert.deepEqual(Object.keys(config).sort(), ["demo", "enabled"]);
+    assert.deepEqual(Object.keys(config).sort(), ["demo", "enabled", "generation", "images", "storage"]);
     assert.equal(typeof config.demo, "boolean");
     assert.equal(typeof config.enabled, "boolean");
     assert.match(response.headers.get("cache-control"), /no-store/);

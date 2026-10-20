@@ -6,6 +6,8 @@ export const MODELS = [
     description: "Quick answers, everyday ideas",
     color: "green",
     mark: "O",
+    vision: true,
+    tools: true,
   },
   {
     id: "anthropic/claude-haiku-4.5",
@@ -14,6 +16,8 @@ export const MODELS = [
     description: "Faster, lower-cost Claude",
     color: "clay",
     mark: "A",
+    vision: true,
+    tools: true,
   },
   {
     id: "google/gemini-2.5-flash-lite",
@@ -22,6 +26,8 @@ export const MODELS = [
     description: "Budget-friendly everyday chat",
     color: "blue",
     mark: "G",
+    vision: true,
+    tools: true,
   },
   {
     id: "mistralai/mistral-small-3.2-24b-instruct",
@@ -30,10 +36,15 @@ export const MODELS = [
     description: "Low-cost multilingual chat",
     color: "clay",
     mark: "M",
+    vision: true,
+    tools: true,
   },
 ] as const;
 export type ModelId = (typeof MODELS)[number]["id"];
 export const DEFAULT_MODEL: ModelId = MODELS[0].id;
+export function supportsImages(id: string) {
+  return MODELS.find((model) => model.id === id)?.vision === true;
+}
 
 // Retain historical labels without offering retired models for new requests.
 export const LEGACY_MODELS = [

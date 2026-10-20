@@ -8,11 +8,12 @@ import {
 } from "./chat-schema.ts";
 import { DEFAULT_MODEL, type ModelId } from "./models.ts";
 import { snapshotTextMessages } from "./chat-history.ts";
-const KEY = "numbase.conversations.v1";
-const schema = z.object({
-  version: z.literal(1),
-  activeId: z.string(),
-  conversations: z.array(conversationSchema),
+const KEY = "numbase.conversations.v2";
+const LEGACY_KEY = "numbase.conversations.v1";
+const workspaceSchema = z.object({
+  version: z.union([z.literal(1), z.literal(2)]),
+  activeId: z.string().catch(""),
+  conversations: z.array(z.unknown()),
 });
 type State = {
   ready: boolean;
@@ -22,11 +23,32 @@ type State = {
 const initial: State = { ready: false, activeId: "", conversations: [] };
 let state = initial;
 let warned = false;
+let canPersist = true;
 const listeners = new Set<() => void>();
+function notify() {
+  listeners.forEach((listener) => listener());
+}
+function emptyConversation(): Conversation {
+  return { id: crypto.randomUUID(), title: "New conversation", model: DEFAULT_MODEL, updatedAt: Date.now(), messages: [] };
+}
+function preserveRecovery(saved: string) {
+  // Keep the exact bytes before any later user action can replace damaged data.
+  // If storage is full, stay in memory rather than sacrificing the only copy.
+  try {
+    const key = `${KEY}.recovery.${Date.now()}.${crypto.randomUUID()}`;
+    localStorage.setItem(key, saved);
+    canPersist = localStorage.getItem(key) === saved;
+  } catch {
+    canPersist = false;
+  }
+  toast.error(canPersist
+    ? "Some saved history could not be loaded. A recovery copy was kept; valid conversations are available."
+    : "Saved history could not be fully loaded or backed up. Changes will stay in this session to protect the original data.");
+}
 function publish(next: State) {
   state = next;
   try {
-    localStorage.setItem(KEY, JSON.stringify({ ...state, version: 1 }));
+    if (canPersist) localStorage.setItem(KEY, JSON.stringify({ ...state, version: 2 }));
   } catch {
     if (!warned)
       toast.error(
@@ -34,7 +56,7 @@ function publish(next: State) {
       );
     warned = true;
   }
-  listeners.forEach((listener) => listener());
+  notify();
 }
 export const conversations = {
   subscribe(listener: () => void) {
@@ -49,27 +71,41 @@ export const conversations = {
   hydrate() {
     if (state.ready) return;
     try {
-      const saved = localStorage.getItem(KEY);
-      if (saved) {
-        const result = schema.safeParse(JSON.parse(saved));
-        if (result.success && result.data.conversations.length) {
+      // Keep the v1 entry intact as a recovery copy after migration.
+      const saved = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
+      if (saved !== null) {
+        let parsed: unknown;
+        try { parsed = JSON.parse(saved); }
+        catch { preserveRecovery(saved); }
+        const result = workspaceSchema.safeParse(parsed);
+        if (result.success) {
+          const chats = result.data.conversations.map((entry) => conversationSchema.safeParse(entry));
+          const valid = chats.flatMap((entry) => entry.success ? [entry.data] : []);
+          const damaged = valid.length !== chats.length;
+          if (damaged) preserveRecovery(saved);
+          const restored = valid.length ? valid : [emptyConversation()];
           state = {
             ready: true,
-            conversations: result.data.conversations,
-            activeId: result.data.conversations.some(
+            conversations: restored,
+            activeId: restored.some(
               (c) => c.id === result.data.activeId,
             )
               ? result.data.activeId
-              : result.data.conversations[0].id,
+              : restored[0].id,
           };
-          listeners.forEach((listener) => listener());
+          notify();
+          // Never rewrite the raw entry during recovery. Normal v1 migration is safe.
+          if (result.data.version === 1 && !damaged) publish(state);
           return;
         }
-        toast.error(
-          "Saved conversations could not be loaded. A new workspace has been opened.",
-        );
+        if (parsed !== undefined) preserveRecovery(saved);
+        state = { ready: true, activeId: "", conversations: [emptyConversation()] };
+        state.activeId = state.conversations[0].id;
+        notify();
+        return;
       }
     } catch {
+      canPersist = false;
       toast.error(
         "Could not read browser storage. Conversations may not persist.",
       );
@@ -84,13 +120,7 @@ export const conversations = {
       this.select(empty.id);
       return;
     }
-    const conversation: Conversation = {
-      id: crypto.randomUUID(),
-      title: "New conversation",
-      model: DEFAULT_MODEL,
-      updatedAt: Date.now(),
-      messages: [],
-    };
+    const conversation = emptyConversation();
     publish({
       ready: true,
       activeId: conversation.id,
@@ -126,8 +156,8 @@ export const conversations = {
       .find((m) => m.role === "user")
       ?.parts.find((p) => p.type === "text");
     const title =
-      current.title === "New conversation" && first?.type === "text"
-        ? first.text.trim().slice(0, 60)
+      current.title === "New conversation"
+        ? first?.type === "text" && first.text.trim() ? first.text.trim().slice(0, 60) : messages.find((message) => message.role === "user")?.parts.find((part) => part.type === "file")?.filename?.slice(0, 60) ?? "Image conversation"
         : current.title;
     const savedMessages = snapshotTextMessages(messages);
     // Streaming notifications can repeat; avoid rewriting unchanged browser data.

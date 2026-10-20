@@ -1,0 +1,38 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import sharp from "sharp";
+const base = new URL(process.env.TEST_BASE_URL ?? "http://127.0.0.1:8806");
+if (!["127.0.0.1", "localhost"].includes(base.hostname)) throw new Error("Media API fixtures may only run against a local test server.");
+const post = (path, body, cookie) => fetch(new URL(path, base), { method: "POST", headers: { "Content-Type": "application/json", Origin: base.origin, ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body) });
+test("HTTP upload → validation → private display/download → ownership rejection", async () => {
+  const session = await post("/api/media/session", {});
+  assert.equal(session.status, 200);
+  const cookie = session.headers.get("set-cookie").split(";")[0];
+  const png = await sharp({ create: { width: 21, height: 17, channels: 3, background: "orange" } }).png().toBuffer();
+  const init = await post("/api/assets", { conversationId: "http-test", filename: "fixture.png", size: png.length, mediaType: "image/png" }, cookie);
+  assert.equal(init.status, 200);
+  const ticket = await init.json();
+  const uploadUrl = new URL(ticket.uploadUrl, base);
+  const uploadHeaders = uploadUrl.origin === base.origin ? { Origin: base.origin, Cookie: cookie, "Content-Type": "image/png" } : { "Content-Type": "image/png" };
+  assert.equal((await fetch(uploadUrl, { method: "PUT", body: png, headers: uploadHeaders })).status, 200);
+  const complete = await post(`/api/assets/${ticket.assetId}/complete`, {}, cookie);
+  assert.equal(complete.status, 200);
+  assert.equal((await complete.json()).width, 21);
+  const privateImage = await fetch(new URL(ticket.url, base), { headers: { Cookie: cookie }, redirect: "manual" });
+  assert.match(privateImage.headers.get("cache-control"), /private, no-store/);
+  const image = privateImage.status === 307 ? await fetch(privateImage.headers.get("location")) : privateImage;
+  assert.equal(image.status, 200); assert.equal(image.headers.get("content-type"), "image/png");
+  const decoded = await sharp(Buffer.from(await image.arrayBuffer())).metadata();
+  assert.equal(decoded.height, 17);
+  const privateDownload = await fetch(new URL(ticket.url + "?download=1", base), { headers: { Cookie: cookie }, redirect: "manual" });
+  const download = privateDownload.status === 307 ? await fetch(privateDownload.headers.get("location")) : privateDownload;
+  assert.match(download.headers.get("content-disposition"), /attachment/);
+  assert.equal((await fetch(new URL(ticket.url, base))).status, 404);
+  const otherSession = await post("/api/media/session", {});
+  const otherCookie = otherSession.headers.get("set-cookie").split(";")[0];
+  assert.equal((await fetch(new URL(ticket.url, base), { headers: { Cookie: otherCookie } })).status, 404);
+});
+test("HTTP mutations reject foreign origins and external file references", async () => {
+  assert.equal((await fetch(new URL("/api/media/session", base), { method: "POST", headers: { Origin: "https://foreign.test", "Content-Type": "application/json" }, body: "{}" })).status, 403);
+  assert.equal((await post("/api/assets", { conversationId: "http-test", filename: "bad.svg", size: 20, mediaType: "image/svg+xml" })).status, 400);
+});

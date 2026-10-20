@@ -1,5 +1,7 @@
 // Never expose provider response bodies, request details, or credentials to the browser.
+import { RequestError } from "./request.ts";
 export function modelErrorMessage(error: unknown): string {
+  if (error instanceof RequestError) return error.message;
   let current = error;
   for (let depth = 0; depth < 5; depth++) {
     if (!current || typeof current !== "object") break;

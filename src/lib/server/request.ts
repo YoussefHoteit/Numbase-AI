@@ -10,6 +10,16 @@ export class RequestError extends Error {
   }
 }
 export async function readChatBody(request: Request): Promise<unknown> {
+  assertSameOrigin(request);
+  if (
+    request.headers.get("content-type")?.split(";")[0].trim() !==
+    "application/json"
+  ) throw new RequestError("Send a JSON request.", 415);
+  const bytes = await readBoundedBody(request, MAX_BYTES);
+  try { return JSON.parse(new TextDecoder().decode(bytes)); }
+  catch { throw new RequestError("The request contains invalid JSON.", 400); }
+}
+export function assertSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   let sameOrigin = false;
   try {
@@ -23,12 +33,9 @@ export async function readChatBody(request: Request): Promise<unknown> {
     /* Missing or malformed origins are rejected. */
   }
   if (!sameOrigin) throw new RequestError("This request is not allowed.", 403);
-  if (
-    request.headers.get("content-type")?.split(";")[0].trim() !==
-    "application/json"
-  )
-    throw new RequestError("Send a JSON request.", 415);
-  if (Number(request.headers.get("content-length")) > MAX_BYTES)
+}
+export async function readBoundedBody(request: Request, maxBytes: number) {
+  if (Number(request.headers.get("content-length")) > maxBytes)
     throw new RequestError(
       "This conversation is too large. Start a new chat.",
       413,
@@ -42,7 +49,7 @@ export async function readChatBody(request: Request): Promise<unknown> {
       const { value, done } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
         throw new RequestError(
           "This conversation is too large. Start a new chat.",
@@ -60,11 +67,7 @@ export async function readChatBody(request: Request): Promise<unknown> {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  try {
-    return JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    throw new RequestError("The request contains invalid JSON.", 400);
-  }
+  return bytes;
 }
 // Per-process protection; public deployments also need authentication and a shared limiter.
 const requests: number[] = [];

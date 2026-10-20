@@ -158,7 +158,8 @@ export function WorkspaceSettings({
                 <h3>Your conversations</h3>
                 <p>
                   Saved in this browser, without account sync. Clearing browser
-                  data removes them.
+                  data removes them. Images are stored separately and privately;
+                  clearing this browser’s session cookies also removes access to them.
                 </p>
               </div>
             </section>
