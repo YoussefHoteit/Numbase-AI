@@ -18,7 +18,6 @@ import {
   Moon,
   PanelLeft,
   RotateCcw,
-  Sparkles,
   Square,
   Sun,
   X,
@@ -351,16 +350,13 @@ export function ChatPane({
                       {message.metadata?.demo && <small>Demo</small>}
                     </div>
                   )}
-                  {message.role === "user" ? (
-                    text && <div className="user-bubble">{text}</div>
-                  ) : (
-                    <MessageMarkdown text={text} />
-                  )}
+                  {message.role === "assistant" && <MessageMarkdown text={text} />}
                   <ImageMessages message={message} busy={busy} onCheck={() => void checkImageStatus(message.id)} onAction={(action, image) => {
                     images.addReference({ type: "file", url: image.url, mediaType: "image/png", filename: "Generated reference" });
                     setInput(action === "edit" ? "Edit this image: " : action === "variation" ? "Create a new variation of this image, keeping its main subject and style." : "Regenerate this image using its original prompt and reference images.");
                     textarea.current?.focus();
                   }} />
+                  {message.role === "user" && text && <div className="user-bubble">{text}</div>}
                   {message.role === "assistant" && text && (
                     <div className="message-actions">
                       <button
@@ -445,10 +441,9 @@ export function ChatPane({
           <input ref={filePicker} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={(event) => {
             addImages(Array.from(event.target.files ?? [])); event.target.value = "";
           }} />
-          {images.attachments.length > 0 && <div className="attachment-tray" aria-label="Images ready to send">{images.attachments.map((item) => <div className="draft-image" key={item.id}>
+          {images.attachments.length > 0 && <div className="attachment-tray" aria-label="Images ready to send">{images.attachments.map((item) => <div className="draft-image" key={item.id} title={item.name}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={item.preview} alt={item.name} />
-            <span title={item.name}>{item.name}</span>
             <button className="icon-button" type="button" disabled={images.uploading} onClick={() => images.remove(item.id)} aria-label={`Remove ${item.name}`}><X size={14} /></button>
           </div>)}</div>}
           {images.uploading && <div className="upload-progress" role="status"><Loader2 size={15} className="spin" />{images.progress || "Preparing your message…"}<button type="button" onClick={images.cancel}>Cancel</button></div>}
@@ -466,7 +461,7 @@ export function ChatPane({
               if (files.length) { event.preventDefault(); addImages(files); }
             }}
             maxLength={16_000}
-            rows={2}
+            rows={1}
             onKeyDown={(e) => {
               if (
                 e.key === "Enter" &&
@@ -480,10 +475,9 @@ export function ChatPane({
           />
           <div className="composer-toolbar">
             <button type="button" className="icon-button attach-button" aria-label="Attach images" title={config?.images === false ? "Images are unavailable; text chat is available" : "Attach up to 4 images · JPEG, PNG, WebP · 5 MB each"} disabled={busy || config?.images === false} onClick={() => filePicker.current?.click()}><Paperclip size={19} /></button>
-            <span className="composer-model">
-              <Sparkles size={14} />
-              <span>{findModel(conversation.model)?.name}</span>
-            </span>
+            <div className="composer-model">
+              <ModelPicker value={conversation.model} onChange={(model) => conversations.setModel(conversation.id, model)} />
+            </div>
             <div className="composer-send">
               <span className="enter-hint">
                 {busy ? "Creating a response…" : "Shift + Enter for a new line"}
