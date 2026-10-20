@@ -536,7 +536,7 @@
 }
 .composer {
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 22px;
   padding: 18px 18px 12px;
   background: var(--paper);
   box-shadow: 0 4px 24px #202a1406;
@@ -544,7 +544,6 @@
 }
 .composer:focus-within {
   border-color: var(--green);
-  box-shadow: 0 0 0 3px #8093680a;
 }
 .composer textarea {
   width: 100%;
@@ -552,7 +551,7 @@
   background: transparent;
   border: 0;
   outline: none !important;
-  min-height: 50px;
+  min-height: 28px;
   max-height: 180px;
   font-size: 13px;
   line-height: 1.6;
@@ -587,11 +586,11 @@
   opacity: 0.8;
 }
 .send-button {
-  width: 33px;
-  height: 33px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 50%;
   background: var(--green);
   color: var(--paper);
 }
@@ -650,7 +649,9 @@
 }
 .message.user {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
 }
 .user-bubble {
   max-width: 85%;
@@ -1147,11 +1148,11 @@
   }
   .composer {
     padding: 14px 13px 10px;
-    border-radius: 13px;
+    border-radius: 20px;
   }
   .composer textarea {
     font-size: 16px;
-    min-height: 45px;
+    min-height: 28px;
   }
   .composer-toolbar {
     margin-top: 5px;
@@ -1670,41 +1671,62 @@
   }
 }
 
-/* Images share the conversation surface and composer. */
+/* Keep image controls on the image, without adding a second card surface. */
 .chat-main { position: relative; }
-.image-drop-overlay { position: absolute; inset: 14px; z-index: 30; display: grid; place-items: center; border: 2px dashed var(--primary); border-radius: 20px; background: var(--background); opacity: .96; pointer-events: none; padding: 24px; text-align: center; font-size: 18px; }
-.attach-button { flex-shrink: 0; }
-.composer-toolbar .composer-model { margin-right: auto; margin-left: 6px; }
-.attachment-tray { display: flex; gap: 10px; overflow-x: auto; padding: 12px 14px 0; }
-.draft-image { position: relative; width: 100px; flex: 0 0 100px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.draft-image img { width: 100%; height: 70px; object-fit: cover; }
-.draft-image > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 7px; font-size: 10px; }
-.draft-image > button { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; background: var(--background); border-radius: 50%; }
-.upload-progress { display: flex; align-items: center; gap: 8px; padding: 12px 16px 0; font-size: 12px; }
+.image-drop-overlay { position: absolute; inset: 14px; z-index: 30; display: grid; place-items: center; border: 2px dashed var(--green); border-radius: 20px; background: var(--paper); opacity: .96; pointer-events: none; padding: 24px; text-align: center; font-size: 18px; }
+.attach-button { flex-shrink: 0; border-radius: 50%; background: var(--soft); }
+.composer-toolbar .composer-model { margin-right: auto; min-width: 0; }
+.composer-model .model-trigger { min-width: 0; gap: 6px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 20px; font-size: 11px; }
+.composer-model .provider-mark { width: 18px; height: 18px; font-size: 10px; }
+.composer-model .model-trigger > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-tray { display: flex; gap: 10px; overflow-x: auto; padding: 0 0 12px; }
+.draft-image { position: relative; width: 88px; height: 88px; flex: 0 0 88px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--soft); }
+.draft-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.draft-image > button { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; background: #202522e6; color: #fff; border: 1px solid #ffffff40; border-radius: 50%; }
+.upload-progress { display: flex; align-items: center; gap: 8px; padding: 0 0 12px; font-size: 12px; }
 .upload-progress button { margin-left: auto; text-decoration: underline; }
-.message-images { display: flex; flex-wrap: wrap; gap: 14px; }
+.message-images { display: flex; flex-wrap: wrap; gap: 14px; min-width: 0; max-width: 100%; }
 .message-images:empty { display: none; }
-.message.user .message-images { justify-content: flex-end; margin-top: 9px; }
-.image-card { width: min(100%, 380px); margin: 10px 0 0; overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--background); }
-.message.user .image-card { width: min(100%, 240px); }
-.chat-image-preview { display: block; width: 100%; cursor: zoom-in; padding: 0; border: 0; background: transparent; }
-.chat-image-preview img { display: block; width: 100%; height: auto; max-height: 440px; object-fit: contain; }
-.image-card figcaption { padding: 10px 12px; font-size: 11px; opacity: .7; overflow-wrap: anywhere; }
-.image-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 10px 10px; }
-.image-actions > * { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; font-size: 11px; color: inherit; text-decoration: none; }
-.image-actions button:disabled { opacity: .4; cursor: not-allowed; }
-.image-actions > *:hover:not(:disabled) { background: var(--muted); }
-.image-details { padding: 0 12px 12px; font-size: 11px; }
-.image-details summary { cursor: pointer; opacity: .7; }
-.image-details p { margin: 9px 0; overflow-wrap: anywhere; }
-.image-details small { opacity: .7; }
-.image-progress, .image-tool-error, .image-unavailable { display: flex; align-items: center; gap: 10px; padding: 15px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; margin-top: 12px; }
+.message.user .message-images { justify-content: flex-end; }
+.image-card { min-width: 0; max-width: 100%; margin: 0; }
+.uploaded-image { width: min(100%, 280px); }
+.generated-image { width: min(100%, 480px); margin-top: 12px; }
+.chat-image-frame { position: relative; width: fit-content; max-width: 100%; }
+.chat-image-preview { display: block; width: fit-content; max-width: 100%; cursor: zoom-in; padding: 0; border: 0; border-radius: 16px; background: transparent; }
+.chat-image-preview img { display: block; width: auto; height: auto; max-width: 100%; max-height: 540px; object-fit: contain; border-radius: inherit; }
+.uploaded-image .chat-image-preview img { max-height: 360px; }
+.image-overlay-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #202522b3; color: #fff; opacity: 0; transition: opacity .16s; }
+.chat-image-frame:hover .image-overlay-actions,
+.chat-image-frame:focus-within .image-overlay-actions { opacity: 1; }
+.image-overlay-actions > * { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 7px; color: inherit; }
+.image-overlay-actions > *:hover { background: #ffffff26; }
+.image-overlay-actions > *:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.generated-image > figcaption { margin-top: 10px; font-size: 11px; color: var(--subtle); }
+.image-actions { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 6px; }
+.image-actions > button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 8px; border: 0; border-radius: 7px; font-size: 12px; color: var(--subtle); background: transparent; }
+.image-actions > button:hover:not(:disabled) { background: var(--soft); color: var(--ink); }
+.image-details { margin-top: 4px; font-size: 11px; color: var(--subtle); }
+.image-details summary { cursor: pointer; padding: 7px 8px; }
+.image-details p { margin: 9px 8px; overflow-wrap: anywhere; }
+.image-details small { display: block; margin: 0 8px; }
+.image-progress, .image-tool-error, .image-unavailable { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 15px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; margin-top: 12px; }
 .image-tool-error { color: var(--destructive); }
-.image-lightbox { width: min(94vw, 1100px); max-width: 1100px; padding: 16px; background: var(--background); }
-.image-lightbox > img { width: 100%; max-height: 85vh; object-fit: contain; }
+.image-lightbox { width: min(94vw, 1100px); max-width: min(94vw, 1100px); padding: 16px; background: var(--background); }
+.image-lightbox > img { width: 100%; max-height: 85dvh; object-fit: contain; }
 .image-close { position: absolute; top: 12px; right: 12px; background: var(--background); z-index: 2; border-radius: 50%; }
+/* Touch devices have no hover; downloads must remain discoverable. */
+@media (hover: none), (pointer: coarse) {
+  .image-overlay-actions { opacity: 1; }
+  .image-overlay-actions > * { width: 40px; height: 40px; }
+  .draft-image > button { width: 32px; height: 32px; }
+}
 @media (max-width: 600px) {
-  .composer-toolbar .composer-model { font-size: 10px; }
-  .image-actions > * { min-height: 36px; }
-  .image-card { width: 100%; }
+  .composer-toolbar { gap: 8px; }
+  .composer-model .model-trigger { max-width: 190px; }
+  .image-actions > button { min-height: 40px; }
+  .uploaded-image { width: min(100%, 240px); }
+}
+@media (max-height: 500px) {
+  .draft-image { width: 60px; height: 60px; flex-basis: 60px; }
+  .attachment-tray { padding-bottom: 8px; }
 }
