@@ -8,7 +8,7 @@ Live application: [numbase-ai.vercel.app](https://numbase-ai.vercel.app/).
 
 1. Install Node.js 22+, clone the repository, and run `npm ci`. Run `npm run dev` for the local interface; without a provider key it shows labeled demo responses.
 2. Reuse the existing GitHub repository and Vercel Hobby project. Set `OPENROUTER_API_KEY` only in Vercel's server environment variables. Never commit keys or prefix secrets with `NEXT_PUBLIC_`.
-3. Keep Vercel Authentication enabled and set `NUMBASE_DEPLOYMENT_PROTECTED=true` in Production. This flag acknowledges the separate Vercel access control; it does not implement authentication. Public access is a separate, explicit deployment choice.
+3. For the public submission, set `NUMBASE_PUBLIC_ACCESS_ENABLED=true` and `NUMBASE_DEPLOYMENT_PROTECTED=false` in Production. In Vercel Deployment Protection, allow production access without Vercel login while keeping preview deployments protected. The public-access flag enables server requests; it does not change Vercel's authentication settings.
 4. Images are optional. Reuse the already provisioned private Supabase project and `numbase-images` bucket. Configure server-only `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and a stable `NUMBASE_SESSION_SECRET` of at least 32 characters. The versioned SQL is in `supabase/migrations/001_private_media.sql`; do not rerun it or create duplicate infrastructure for the existing setup.
 5. Set `NUMBASE_IMAGE_GENERATION_ENABLED=true` to allow paid generation, or `false` to keep upload and vision chat without generation. Redeploy after changing environment variables.
 
@@ -38,10 +38,9 @@ Optional generation/editing uses `google/gemini-3.1-flash-image` separately from
 
 ## Known limitations
 
-- Production currently requires approved Vercel access. This does not meet the assignment’s public, no-login submission requirement.
 - Browser-local conversations have no account sync. Clearing cookies or rotating the session secret removes access to that anonymous session's images. Deleting a chat does not yet delete stored files.
 - History is limited to 100 messages/64,000 characters; output to 4,096 tokens. Automatic trimming is not implemented. Slow image/tool requests can time out.
 - Four attachments per message, 5 MB/20 megapixels each; twelve image-bearing parts per request. No animated images, SVG, video, or masked inpainting. Vision/OCR can be inaccurate.
 - Mistral supports up to five unique images per request. For larger image histories, choose another vision model; the app keeps every image instead of silently removing context.
 - Production generation reserves at most five jobs per session/day and twenty globally/day; these are operation limits, not currency caps. Failed or uncertain jobs count and have no automatic paid retry.
-- Text rate limiting is per process. Requests use the configured key’s credits; generation has shared daily quotas, but these are not a currency spending cap. Provider availability, credits, key expiry, and Supabase free-tier limits still apply. Demo mode performs no real image analysis or generation.
+- Public requests share the configured key’s credits. Text rate limiting is per process; provider availability, credits, key expiry, and Supabase free-tier limits still apply. Demo mode performs no real image analysis or generation.
