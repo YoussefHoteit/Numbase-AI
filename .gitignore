@@ -45,3 +45,7 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /.local-media/
+/.local-documents/
+/.workflow-data/
+/src/app/.well-known/workflow/
+/.swc

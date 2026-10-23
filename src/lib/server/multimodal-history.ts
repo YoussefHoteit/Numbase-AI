@@ -5,6 +5,7 @@ import { imageIds, toModelMessages } from "../chat-history.ts";
 import { assetIdFromUrl, imageResultSchema } from "../media.ts";
 import { getAsset, readAssetBytes, type Asset } from "./media-store.ts";
 import { RequestError } from "./request.ts";
+import { documentIdFromUrl } from "../documents.ts";
 
 export async function multimodalHistory(messages: ChatMessage[], owner: string, conversationId: string, supportsVision = true, signal?: AbortSignal): Promise<ModelMessage[]> {
   signal?.throwIfAborted();
@@ -42,6 +43,7 @@ export async function multimodalHistory(messages: ChatMessage[], owner: string, 
       if (text) content.push({ type: "text", text });
       for (const part of message.parts) {
         if (part.type !== "file") continue;
+        if (documentIdFromUrl(part.url)) continue;
         const assetId = assetIdFromUrl(part.url);
         if (!assetId) throw new RequestError("Use an image uploaded in this chat.", 400);
         content.push({ type: "text", text: `[Attached image ID: ${assetId}]` }, ...resolve(assetId));

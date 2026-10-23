@@ -37,7 +37,7 @@ export function ImageMessages({ message, busy, onAction, onCheck }: {
   onCheck: () => void;
 }) {
   return <div className="message-images">{message.parts.map((part, index) => {
-    if (part.type === "file") return <figure className="image-card uploaded-image" key={index}><ChatImage url={part.url} alt={part.filename ?? "Attached image"} /><figcaption className="sr-only">{part.filename ?? "Attached image"}</figcaption></figure>;
+    if (part.type === "file" && part.mediaType.startsWith("image/")) return <figure className="image-card uploaded-image" key={index}><ChatImage url={part.url} alt={part.filename ?? "Attached image"} /><figcaption className="sr-only">{part.filename ?? "Attached image"}</figcaption></figure>;
     if (part.type !== "tool-createImage") return null;
     if (part.state === "output-error") return <div key={index} className="image-tool-error" role="alert">{part.errorText || "The image could not be generated. No automatic retry was made."}<button type="button" disabled={busy} onClick={onCheck}>Check status</button></div>;
     if (part.state !== "output-available") return <div key={index} className="image-progress" role="status">{busy && <Loader2 size={18} className="spin" />}{busy ? "Creating your image… This can take a minute." : <>This image request was interrupted.<button type="button" onClick={onCheck}>Check status</button></>}</div>;

@@ -22,6 +22,7 @@ import {
   Sun,
   X,
   Paperclip,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -42,7 +43,8 @@ import { createChatTransport } from "@/lib/chat-transport";
 import { copyText, MessageMarkdown } from "./markdown";
 import { Brand } from "./brand";
 import { ImageMessages } from "./image-messages";
-import { useImageAttachments } from "./use-image-attachments";
+import { useAttachments } from "./use-attachments";
+import { DocumentMessages } from "./document-messages";
 import { imageResultSchema } from "@/lib/media";
 
 const transport = createChatTransport();
@@ -145,14 +147,14 @@ export function ChatPane({
       },
     });
   const [input, setInput] = useState("");
-  const images = useImageAttachments(conversation.id);
+  const uploads = useAttachments(conversation.id);
   const filePicker = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [nearBottom, setNearBottom] = useState(true);
   const { resolvedTheme, setTheme } = useTheme();
   const scroller = useRef<HTMLDivElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
-  const busy = status === "streaming" || status === "submitted" || images.uploading;
+  const busy = status === "streaming" || status === "submitted" || uploads.uploading;
   // Keep partial responses when a stream is stopped or the user leaves this chat.
   useEffect(() => {
     conversations.saveMessages(conversation.id, messages);
@@ -173,28 +175,34 @@ export function ChatPane({
       textarea.current.style.height = `${Math.min(textarea.current.scrollHeight, 180)}px`;
     }
   }, [input]);
-  const addImages = (files: File[]) => {
+  const addFiles = (files: File[]) => {
     if (busy) return;
-    if (config?.images === false) {
-      toast.error("Images are unavailable in this workspace. You can still send text messages.");
-      return;
-    }
-    images.addFiles(files);
+    const allowed = files.filter((file) => {
+      if (file.type.startsWith("image/")) {
+        if (config?.images !== false) return true;
+        toast.error("Images are unavailable in this workspace. You can still send text messages.");
+      } else {
+        if (config?.documents) return true;
+        toast.error("Document uploads are not enabled yet. Image and text chat are still available.");
+      }
+      return false;
+    });
+    uploads.addFiles(allowed);
   };
   const submit = async () => {
-    if ((!input.trim() && !images.attachments.length) || busy || config?.enabled === false) return;
-    if (images.attachments.length && config?.images === false) {
+    if ((!input.trim() && !uploads.attachments.length) || busy || config?.enabled === false) return;
+    if (uploads.attachments.some((item) => item.isImage) && config?.images === false) {
       toast.error("Remove the image attachments to continue with text chat.");
       return;
     }
     const text = input.trim();
     try {
-      const files = await images.upload();
-      setInput((current) => current.trim() === text ? "" : current); images.clear(); clearError(); setNearBottom(true);
+      const files = await uploads.upload();
+      setInput((current) => current.trim() === text ? "" : current); uploads.clear(); clearError(); setNearBottom(true);
       await sendMessage({ text, files }, { body: { model: conversation.model } });
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError"))
-        toast.error(error instanceof Error ? error.message : "The images could not be uploaded. Please try again.");
+        toast.error(error instanceof Error ? error.message : "The files could not be uploaded. Please try again.");
     }
   };
   const regenerateResponse = () => {
@@ -225,9 +233,9 @@ export function ChatPane({
     <main className={`chat-main ${dragging ? "is-dragging" : ""}`}
       onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); setDragging(true); } }}
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false); }}
-      onDrop={(event) => { event.preventDefault(); setDragging(false); addImages(Array.from(event.dataTransfer.files)); }}
+      onDrop={(event) => { event.preventDefault(); setDragging(false); addFiles(Array.from(event.dataTransfer.files)); }}
     >
-      {dragging && <div className="image-drop-overlay" role="status">Drop images to add them to your message</div>}
+      {dragging && <div className="image-drop-overlay" role="status">Drop files to add them to your message</div>}
       <header className="chat-header">
         <div className="header-left">
           <button
@@ -285,7 +293,7 @@ export function ChatPane({
         {messages.length === 0 ? (
           <section className="welcome">
             <div className="welcome-eyebrow">
-              <span />TEXT, IMAGES, ONE CONVERSATION
+              <span />TEXT, IMAGES, FILES, ONE CONVERSATION
             </div>
             <Brand />
             <h1>
@@ -351,8 +359,9 @@ export function ChatPane({
                     </div>
                   )}
                   {message.role === "assistant" && <MessageMarkdown text={text} />}
+                  <DocumentMessages message={message} />
                   <ImageMessages message={message} busy={busy} onCheck={() => void checkImageStatus(message.id)} onAction={(action, image) => {
-                    images.addReference({ type: "file", url: image.url, mediaType: "image/png", filename: "Generated reference" });
+                    uploads.addReference({ type: "file", url: image.url, mediaType: "image/png", filename: "Generated reference" });
                     setInput(action === "edit" ? "Edit this image: " : action === "variation" ? "Create a new variation of this image, keeping its main subject and style." : "Regenerate this image using its original prompt and reference images.");
                     textarea.current?.focus();
                   }} />
@@ -438,27 +447,27 @@ export function ChatPane({
             void submit();
           }}
         >
-          <input ref={filePicker} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={(event) => {
-            addImages(Array.from(event.target.files ?? [])); event.target.value = "";
+          <input ref={filePicker} type="file" accept="image/jpeg,image/png,image/webp,.pdf,.docx,.xlsx,.csv,.txt,.md,.markdown,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.sql,.html,.css,.scss,.json,.yaml,.yml,.xml,.sh,.ps1,.r,.lua,.toml,.ini,.log" multiple hidden onChange={(event) => {
+            addFiles(Array.from(event.target.files ?? [])); event.target.value = "";
           }} />
-          {images.attachments.length > 0 && <div className="attachment-tray" aria-label="Images ready to send">{images.attachments.map((item) => <div className="draft-image" key={item.id} title={item.name}>
+          {uploads.attachments.length > 0 && <div className="attachment-tray" aria-label="Files ready to send">{uploads.attachments.map((item) => <div className={item.isImage ? "draft-image" : "draft-document"} key={item.id} title={item.name}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.preview} alt={item.name} />
-            <button className="icon-button" type="button" disabled={images.uploading} onClick={() => images.remove(item.id)} aria-label={`Remove ${item.name}`}><X size={14} /></button>
+            {item.isImage ? <img src={item.preview} alt={item.name} /> : <><FileText size={24} /><span>{item.name}</span></>}
+            <button className="icon-button" type="button" disabled={uploads.uploading} onClick={() => uploads.remove(item.id)} aria-label={`Remove ${item.name}`}><X size={14} /></button>
           </div>)}</div>}
-          {images.uploading && <div className="upload-progress" role="status"><Loader2 size={15} className="spin" />{images.progress || "Preparing your message…"}<button type="button" onClick={images.cancel}>Cancel</button></div>}
+          {uploads.uploading && <div className="upload-progress" role="status"><Loader2 size={15} className="spin" />{uploads.progress || "Preparing your message…"}<button type="button" onClick={uploads.cancel}>Cancel</button></div>}
           <label htmlFor="composer" className="sr-only">
             Message Numbase AI
           </label>
           <textarea
             id="composer"
             ref={textarea}
-            placeholder="Ask a question, add an image, or describe what to create."
+            placeholder="Ask a question, attach a file, or describe what to create."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onPaste={(event) => {
               const files = Array.from(event.clipboardData.items).filter((item) => item.kind === "file").flatMap((item) => item.getAsFile() ?? []);
-              if (files.length) { event.preventDefault(); addImages(files); }
+              if (files.length) { event.preventDefault(); addFiles(files); }
             }}
             maxLength={16_000}
             rows={1}
@@ -474,7 +483,7 @@ export function ChatPane({
             }}
           />
           <div className="composer-toolbar">
-            <button type="button" className="icon-button attach-button" aria-label="Attach images" title={config?.images === false ? "Images are unavailable; text chat is available" : "Attach up to 4 images · JPEG, PNG, WebP · 5 MB each"} disabled={busy || config?.images === false} onClick={() => filePicker.current?.click()}><Paperclip size={19} /></button>
+            <button type="button" className="icon-button attach-button" aria-label="Attach files" title={config?.documents ? "Attach up to 4 files · Documents up to 20 MB · Images up to 5 MB" : "Attach up to 4 images · JPEG, PNG, WebP · 5 MB each"} disabled={busy || (config?.images === false && !config?.documents)} onClick={() => filePicker.current?.click()}><Paperclip size={19} /></button>
             <div className="composer-model">
               <ModelPicker value={conversation.model} onChange={(model) => conversations.setModel(conversation.id, model)} />
             </div>
@@ -488,7 +497,7 @@ export function ChatPane({
                   type="button"
                   aria-label="Stop response"
                   onClick={() => {
-                    images.cancel(); void stop();
+                    uploads.cancel(); void stop();
                   }}
                 >
                   <Square size={16} fill="currentColor" />
@@ -498,7 +507,7 @@ export function ChatPane({
                   className="send-button"
                   type="submit"
                   aria-label="Send message"
-                  disabled={(!input.trim() && !images.attachments.length) || config?.enabled === false}
+                  disabled={(!input.trim() && !uploads.attachments.length) || config?.enabled === false}
                 >
                   <ArrowUp size={20} />
                 </button>
@@ -509,7 +518,7 @@ export function ChatPane({
         <p className="composer-disclaimer">
           {config?.demo
             ? "Demo mode uses sample responses. Connect OpenRouter for live answers."
-            : "Images and messages go to the selected AI providers. Double-check important details."}
+            : "Files, images, and messages may be sent to the selected AI providers. Double-check important details."}
         </p>
       </div>
     </main>

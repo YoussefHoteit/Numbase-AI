@@ -11,6 +11,10 @@ import { mediaSession } from "./media-session.ts";
 import { multimodalHistory } from "./multimodal-history.ts";
 import { findModel, imageLimit, supportsImages } from "../models.ts";
 import { liveRequestsEnabled, mediaAvailable, requireMedia } from "./media-config.ts";
+import { documentIds } from "../documents.ts";
+import { requireDocuments } from "./document-config.ts";
+import { retrieveDocuments, addDocumentContext, waitForReadyDocuments } from "./document-retrieval.ts";
+import { toModelMessages } from "../chat-history.ts";
 export async function handleChat(request: Request, fetch?: typeof globalThis.fetch) {
   try {
     const parsed = requestSchema.safeParse(await readChatBody(request));
@@ -33,7 +37,8 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
         503,
       );
     const ids = imageIds(messages);
-    if (!id && ids.length) throw new RequestError("A conversation ID is required for images.", 400);
+    const files = documentIds(messages);
+    if (!id && (ids.length || files.length)) throw new RequestError("A conversation ID is required for attachments.", 400);
     const limit = imageLimit(model);
     if (limit !== undefined && ids.length > limit)
       throw new RequestError(
@@ -42,9 +47,16 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       );
     // Never discard image history silently when media configuration is unavailable.
     if (ids.length) requireMedia();
-    const session = id && mediaAvailable() ? mediaSession(request, true) : undefined;
+    if (files.length) requireDocuments();
+    const session = id && (mediaAvailable() || files.length) ? mediaSession(request, true) : undefined;
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(session ? 165_000 : 55_000)]);
-    const modelMessages = session && id ? await multimodalHistory(messages, session.owner, id, supportsImages(model), signal) : undefined;
+    let modelMessages = session && id ? await multimodalHistory(messages, session.owner, id, supportsImages(model), signal) : undefined;
+    if (session && id && files.length) {
+      await waitForReadyDocuments(session.owner, id, files, signal);
+      const recentQuestions = messages.filter((message) => message.role === "user").slice(-3).flatMap((message) => message.parts.flatMap((part) => part.type === "text" ? [part.text] : [])).join("\n");
+      const matches = await retrieveDocuments(session.owner, id, files, recentQuestions || "Describe the attached files", signal);
+      modelMessages = addDocumentContext(modelMessages ?? toModelMessages(messages), matches);
+    }
     const response = streamOpenRouterResponse({
       model,
       messages,

@@ -1672,6 +1672,22 @@
 }
 
 /* Keep image controls on the image, without adding a second card surface. */
+.message-documents { display: flex; flex-wrap: wrap; gap: 10px; max-width: 100%; }
+.message-documents:empty { display: none; }
+.message.user .message-documents { justify-content: flex-end; }
+.document-card { border: 1px solid var(--line); border-radius: 14px; padding: 14px; width: min(100%, 330px); background: var(--soft); margin: 4px 0; }
+.document-card-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.document-card-heading > div { min-width: 0; flex: 1; }
+.document-card strong { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.document-card small { display: block; font-size: 11px; color: var(--subtle); margin-top: 4px; }
+.document-card p { font-size: 12px; margin-top: 10px; overflow-wrap: anywhere; }
+.document-warning { color: var(--subtle); }
+.document-card-actions { display: flex; gap: 14px; margin-top: 12px; }
+.document-card-actions > * { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; min-height: 32px; }
+.draft-document { display: flex; position: relative; align-items: center; gap: 10px; flex: 0 0 200px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 32px 12px 12px; min-width: 0; background: var(--soft); }
+.draft-document > span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-document > svg { flex-shrink: 0; }
+.draft-document > button { position: absolute; right: 3px; top: 3px; }
 .chat-main { position: relative; }
 .image-drop-overlay { position: absolute; inset: 14px; z-index: 30; display: grid; place-items: center; border: 2px dashed var(--green); border-radius: 20px; background: var(--paper); opacity: .96; pointer-events: none; padding: 24px; text-align: center; font-size: 18px; }
 .attach-button { flex-shrink: 0; border-radius: 50%; background: var(--soft); }

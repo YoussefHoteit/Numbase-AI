@@ -2,6 +2,7 @@ import { z } from "zod";
 import { LEGACY_MODELS, MODELS, resolveModelId } from "./models.ts";
 import type { UIMessage } from "ai";
 import { assetIdFromUrl, imageTypeSchema, imageOperationSchema, imageResultSchema } from "./media.ts";
+import { DOCUMENT_LIMITS, documentPartSchema, documentIds } from "./documents.ts";
 export const modelSchema = z.enum(MODELS.map((model) => model.id));
 const historicalModelSchema = z.enum([
   ...MODELS.map((model) => model.id),
@@ -36,13 +37,15 @@ export const messageSchema = z.object({
   id: z.string().min(1).max(128),
   role: z.enum(["user", "assistant"]),
   parts: z
-    .array(z.union([textPart, filePart, imageToolPart]))
+    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart]))
     .min(1)
     .max(20),
   metadata: metadataSchema.optional(),
 }).superRefine((message, context) => {
   if (message.parts.filter((part) => part.type === "file").length > 4)
-    context.addIssue({ code: "custom", message: "Attach up to four images." });
+    context.addIssue({ code: "custom", message: "Attach up to four files per message." });
+  if (message.role === "assistant" && message.parts.some((part) => part.type === "file" && !assetIdFromUrl(part.url)))
+    context.addIssue({ code: "custom", message: "Documents must be attached by the user." });
   if (message.role === "user" && message.parts.some((part) => part.type.startsWith("tool-")))
     context.addIssue({ code: "custom", message: "User messages cannot contain tool results." });
 });
@@ -68,7 +71,9 @@ export const requestSchema = z
       });
     if (!lastMessage?.parts.some((part) => part.type === "file" || (part.type === "text" && part.text.trim())))
       context.addIssue({ code: "custom", message: "Message is empty." });
-    if (messages.flatMap((message) => message.parts).filter((part) => part.type === "file" || part.type === "tool-createImage").length > 12)
+    if (documentIds(messages).length > DOCUMENT_LIMITS.filesPerChat)
+      context.addIssue({ code: "custom", message: "This chat has too many documents. Start a new chat." });
+    if (messages.flatMap((message) => message.parts).filter((part) => (part.type === "file" && !!assetIdFromUrl(part.url)) || part.type === "tool-createImage").length > 12)
       context.addIssue({ code: "custom", message: "This chat has too many images. Start a new chat." });
   });
 export const conversationSchema = z.object({
@@ -83,4 +88,4 @@ export type Conversation = Omit<
   "messages"
 > & { messages: ChatMessage[] };
 
-export type ChatConfig = { demo: boolean; enabled: boolean; images?: boolean; generation?: boolean; storage?: "local" | "supabase" | "unavailable" };
+export type ChatConfig = { demo: boolean; enabled: boolean; images?: boolean; documents?: boolean; generation?: boolean; storage?: "local" | "supabase" | "unavailable" };
