@@ -37,16 +37,25 @@ Browser history remains backward-compatible with v2, including existing image to
 - Browser preview: real PDF/CSV picker uploads, background parsing/indexing to ready, file cards, model switching, reload preservation, and 390-pixel mobile layout inspected. Chat was explicitly in demo mode; no live AI accuracy claim follows from these UI checks.
 - Final lint and production build passed. The production dependency audit reports zero vulnerabilities. The full audit still reports five high-severity development-tool findings through ESLint's `fast-glob`/`micromatch`/`braces` chain; no patched `braces` release was available at verification. No forced downgrade or `audit fix --force` was used. Review the upstream fix before the final release.
 
-All provider/storage contract checks use synthetic data and mocks. No real files, provider credits, production tables, repository branches, or deployments were changed for these tests. Live Supabase migration behavior and hosted Workflow execution still need deployment-stage verification.
+Those provider/storage contract checks use synthetic data and mocks. Deployment-stage checks below were performed separately against the hosted services.
+
+## Hosted verification — 23 October 2026
+
+- Applied the reviewed additive migration to the existing Supabase project. Verified the separate document bucket is private with a 20 MB limit, pgvector is installed, and all three document tables use RLS. Anonymous and signed-in browser roles cannot read the tables; the server role can. Existing image storage remains private and unchanged.
+- Published the document milestone to the same public Vercel deployment and enabled its production document flag. Public API validation passed five checks; two checks correctly skipped authenticated-deployment and demo-only cases.
+- Uploaded synthetic PDF, DOCX, XLSX, and TypeScript files through production signed uploads. Hosted Workflows parsed and embedded every file to ready. Original downloads matched the uploaded bytes; missing-owner and wrong-conversation access were rejected.
+- GPT-4.1 Mini and Claude Haiku 4.5 returned the four distinct values with filenames and source locations in the same conversation, without reuploading files after the model switch. This verifies the small-file path; it does not establish exhaustive long-document accuracy.
+- Browser check: CSV picker preview, upload, indexing, cited answer, reload, and a follow-up after switching from GPT-4.1 Mini to Claude Haiku 4.5 passed. Existing saved conversations remained available.
+- Rechecked all 91 development source hashes without changes and verified all 91 published file hashes against the release copy. No credentials were committed.
 
 ## Remaining milestones
 
 1. Add complete multi-stage summaries covering every section, extraction over all relevant chunks, and exact spreadsheet table/range operations. Selected retrieval excerpts must never be presented as exhaustive analysis.
 2. Add schema-validated invoice/table extraction with editable previews and JSON/XLSX export.
 3. Generate DOCX/XLSX/PDF/code using programmatic file writers. Support edits as new versions and preserve originals; document formatting limitations.
-4. Add document deletion/retention, cleanup of failed reservations, stalled-start recovery, and review shared public quotas before enabling production.
-5. Finish real file drag/drop and clipboard checks, mixed image/document interactions, accessibility, and live paid-provider verification with a bounded test budget. Verify the same public deployment without login, and keep preview protection.
-6. Review/apply the additive migration only after inspecting the existing Supabase schema, bucket settings, and extensions. Verify database constraints, RPC permissions, and owner isolation against a disposable dataset.
+4. Add document deletion/retention, cleanup of failed reservations, stalled-start recovery, and review the initial shared public quotas as usage grows.
+5. Finish real file drag/drop and clipboard checks, mixed image/document interactions, mobile/accessibility, and the final chat/image regression pass. Keep preview protection.
+6. Exercise larger hosted jobs, failures, cancellation, quota boundaries, and source accuracy across long or complex files. The deterministic large-document test and hosted small-file checks cover different risks.
 
 ## Research references
 

@@ -2,7 +2,7 @@
 
 A chat, image, and document workspace built with Next.js App Router, React, TypeScript, Tailwind CSS 4, and shadcn/ui (Base UI). The Vercel AI SDK streams OpenRouter responses through server routes. Supabase stores private media and document search data; conversations remain in browser storage.
 
-Live application: [numbase-ai.vercel.app](https://numbase-ai.vercel.app/). Project 4 is being delivered in stages; the current milestone adds document upload and grounded questions.
+Live application: [numbase-ai.vercel.app](https://numbase-ai.vercel.app/). Project 4 is being delivered in stages; document upload and grounded questions are enabled on the current deployment.
 
 ## Setup
 
@@ -34,7 +34,7 @@ Verify with `npm run test:unit`, `npm run lint`, and `npm run build`. Developmen
 
 ## Known limitations
 
-- Project 4 is incomplete: full-document summaries, structured extraction, generated/edited document exports, deletion/retention, and live document release checks are still pending. Retrieval provides selected excerpts, not an exhaustive review or exact spreadsheet totals.
+- Project 4 is incomplete: full-document summaries, structured extraction, generated/edited document exports, deletion/retention, and final interaction/large-file checks are still pending. Retrieval provides selected excerpts, not an exhaustive review or exact spreadsheet totals.
 - Documents: 20 MB, 300 PDF pages, 2 million extracted characters, 50,000 spreadsheet rows/100 columns, and 800 chunks maximum. Scanned PDFs need OCR; unreadable pages are reported. Complex layouts may lose structure, and spreadsheet formulas use saved values without recalculation.
 - Initial production document quotas reserve at most 5 files per session and 25 globally, with 5/20 new files per day respectively. Query limits are 100 per session/day and 500 globally/day. Deletion and automatic expiry are not yet implemented; failed/pending uploads still occupy reservations. Processing failures require a fresh upload. Review these limits before enabling publicly.
 - Conversations have no account sync. Clearing cookies or rotating the session secret removes access to the anonymous session's files. Deleting a chat does not delete stored media yet.
