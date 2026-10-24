@@ -416,6 +416,7 @@ export function ChatPane({
                     textarea.current?.focus();
                   }} />
                   <ImageMessages message={message} busy={busy} onCheck={() => void checkImageStatus(message.id)} onAction={(action, image) => {
+                    setEditTarget(null);
                     uploads.addReference({ type: "file", url: image.url, mediaType: "image/png", filename: "Generated reference" });
                     setInput(action === "edit" ? "Edit this image: " : action === "variation" ? "Create a new variation of this image, keeping its main subject and style." : "Regenerate this image using its original prompt and reference images.");
                     textarea.current?.focus();
