@@ -17,6 +17,12 @@ export function extractionsAvailable() {
 export function requireExtractions() {
   if (!extractionsAvailable()) throw new RequestError("Structured extraction is not enabled in this workspace. File questions still work.", 503);
 }
+export function filesAvailable() {
+  return documentsAvailable() && process.env.NUMBASE_FILE_GENERATION_ENABLED === "true";
+}
+export function requireFileGeneration() {
+  if (!filesAvailable()) throw new RequestError("File generation is not enabled yet. Chat, file questions, and available image features still work.", 503);
+}
 export function documentError(error: unknown) {
   return new Response(error instanceof RequestError ? error.message : "Document processing is temporarily unavailable. Please try again.", {
     status: error instanceof RequestError ? error.status : 500,

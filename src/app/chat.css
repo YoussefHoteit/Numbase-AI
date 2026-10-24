@@ -1782,6 +1782,19 @@
   .extraction-footer button { flex: 1; }
 }
 .image-close { position: absolute; top: 12px; right: 12px; background: var(--background); z-index: 2; border-radius: 50%; }
+.generated-file-card { margin: 14px 0; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--soft); max-width: 460px; min-width: 0; }
+.generated-file-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.generated-file-heading > svg { flex-shrink: 0; }
+.generated-file-heading > div { min-width: 0; }
+.generated-file-heading strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.generated-file-heading small, .generated-file-card p { font-size: 12px; color: var(--subtle); line-height: 1.6; }
+.generated-file-card p { margin-top: 10px; overflow-wrap: anywhere; }
+.generated-file-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+.generated-file-actions > *, .generated-file-check { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; }
+.generated-file-actions a { background: var(--foreground); color: var(--background); }
+.generated-file-actions button:disabled { opacity: .5; }
+.generated-file-actions > *:focus-visible, .generated-file-check:focus-visible { outline: 2px solid var(--subtle); outline-offset: 3px; }
+.generated-file-check { margin-top: 12px; }
 /* Touch devices have no hover; downloads must remain discoverable. */
 @media (hover: none), (pointer: coarse) {
   .image-overlay-actions { opacity: 1; }

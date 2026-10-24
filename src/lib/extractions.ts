@@ -63,5 +63,5 @@ export function extractionContext(result: Extraction) {
 }
 
 export function messageContextSize(message: { parts: readonly { type: string; text?: string; data?: unknown }[] }) {
-  return message.parts.reduce((size, part) => size + (part.type === "text" ? part.text?.length ?? 0 : part.type === "data-extraction" ? JSON.stringify(part.data).length : 0), 0);
+  return message.parts.reduce((size, part) => size + (part.type === "text" ? part.text?.length ?? 0 : part.type === "data-extraction" ? JSON.stringify(part.data).length : part.type === "tool-createFile" ? JSON.stringify(part).length : 0), 0);
 }

@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import { assetIdFromUrl, imageTypeSchema, imageOperationSchema, imageResultSchema } from "./media.ts";
 import { DOCUMENT_LIMITS, documentPartSchema, documentIds } from "./documents.ts";
 import { extractionPartSchema, messageContextSize, type Extraction } from "./extractions.ts";
+import { createFileInputSchema, fileResultSchema, generatedFileIds } from "./generated-files.ts";
 export const modelSchema = z.enum(MODELS.map((model) => model.id));
 const historicalModelSchema = z.enum([
   ...MODELS.map((model) => model.id),
@@ -34,11 +35,25 @@ const imageToolPart = z.discriminatedUnion("state", [
   z.object({ ...imageToolBase, state: z.literal("output-available"), input: imageOperationSchema, output: imageResultSchema }),
   z.object({ ...imageToolBase, state: z.literal("output-error"), input: z.json().default(null), rawInput: z.json().optional(), errorText: z.string().max(1000) }),
 ]);
+const fileToolBase = { type: z.literal("tool-createFile"), toolCallId: z.string().min(1).max(128) };
+const fileToolPart = z.discriminatedUnion("state", [
+  z.object({ ...fileToolBase, state: z.literal("input-streaming"), input: z.json().optional(), rawInput: z.string().optional() }),
+  z.object({ ...fileToolBase, state: z.literal("input-available"), input: createFileInputSchema }),
+  z.object({ ...fileToolBase, state: z.literal("output-available"), input: createFileInputSchema, output: fileResultSchema }),
+  z.object({ ...fileToolBase, state: z.literal("output-error"), input: z.json().default(null), rawInput: z.json().optional(), errorText: z.string().max(1000) }),
+]);
+const readToolBase = { type: z.literal("tool-readFileForEditing"), toolCallId: z.string().min(1).max(128) };
+const readToolPart = z.discriminatedUnion("state", [
+  z.object({ ...readToolBase, state: z.literal("input-streaming"), input: z.json().optional(), rawInput: z.string().optional() }),
+  z.object({ ...readToolBase, state: z.literal("input-available"), input: z.strictObject({ documentId: z.uuid() }) }),
+  z.object({ ...readToolBase, state: z.literal("output-available"), input: z.strictObject({ documentId: z.uuid() }), output: z.json() }),
+  z.object({ ...readToolBase, state: z.literal("output-error"), input: z.json().default(null), rawInput: z.json().optional(), errorText: z.string().max(1000) }),
+]);
 export const messageSchema = z.object({
   id: z.string().min(1).max(128),
   role: z.enum(["user", "assistant"]),
   parts: z
-    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart, extractionPartSchema]))
+    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart, extractionPartSchema, fileToolPart, readToolPart]))
     .min(1)
     .max(20),
   metadata: metadataSchema.optional(),
@@ -71,7 +86,7 @@ export const requestSchema = z
       });
     if (!lastMessage?.parts.some((part) => part.type === "file" || (part.type === "text" && part.text.trim())))
       context.addIssue({ code: "custom", message: "Message is empty." });
-    if (documentIds(messages).length > DOCUMENT_LIMITS.filesPerChat)
+    if (new Set([...documentIds(messages), ...generatedFileIds(messages)]).size > DOCUMENT_LIMITS.filesPerChat)
       context.addIssue({ code: "custom", message: "This chat has too many documents. Start a new chat." });
     if (messages.flatMap((message) => message.parts).filter((part) => (part.type === "file" && !!assetIdFromUrl(part.url)) || part.type === "tool-createImage").length > 12)
       context.addIssue({ code: "custom", message: "This chat has too many images. Start a new chat." });
@@ -88,4 +103,4 @@ export type Conversation = Omit<
   "messages"
 > & { messages: ChatMessage[] };
 
-export type ChatConfig = { demo: boolean; enabled: boolean; images?: boolean; documents?: boolean; extraction?: boolean; generation?: boolean; storage?: "local" | "supabase" | "unavailable" };
+export type ChatConfig = { demo: boolean; enabled: boolean; images?: boolean; documents?: boolean; extraction?: boolean; files?: boolean; generation?: boolean; storage?: "local" | "supabase" | "unavailable" };

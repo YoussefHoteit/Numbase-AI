@@ -83,24 +83,40 @@ export async function updateDocument(doc: DocumentRecord, expected?: DocumentSta
     return true;
   });
 }
-export async function newDocumentUpload(owner: string, conversationId: string, filename: string, size: number) {
+export async function reserveDocument(owner: string, conversationId: string, filename: string, size: number, id: string = crypto.randomUUID()) {
   validId(owner);
   const kind = documentKind(filename);
   if (!kind || size < 1 || size > DOCUMENT_LIMITS.bytes) throw new RequestError("Choose a supported document up to 20 MB.", 400);
   const doc: DocumentRecord = {
-    id: crypto.randomUUID(), owner, conversationId, filename: filename.replace(/[\x00-\x1f/\\]/g, "_").slice(0, 160),
+    id: validId(id), owner, conversationId, filename: filename.replace(/[\x00-\x1f/\\]/g, "_").slice(0, 160),
     kind, size, status: "pending", createdAt: Date.now(), indexed: 0, chunkCount: 0,
   };
   const db = documentClient();
   if (db) {
     const { error } = await db.rpc("numbase_reserve_document", { document_record: doc });
     if (error) throw new RequestError("Document uploads have reached a storage or daily limit. Please try later.", 429);
+  } else {
+    // A deterministic generated-file ID may be claimed by only one concurrent request.
+    await writeFile(await localPath(owner, doc.id, "json"), JSON.stringify(doc), { flag: "wx" });
+  }
+  return doc;
+}
+export async function newDocumentUpload(owner: string, conversationId: string, filename: string, size: number) {
+  const doc = await reserveDocument(owner, conversationId, filename, size);
+  const db = documentClient();
+  if (db) {
     const { data, error: uploadError } = await db.storage.from(BUCKET).createSignedUploadUrl(storageKey(doc), { upsert: false });
     if (uploadError || !data) throw new RequestError("Could not start the private document upload.", 503);
     return { doc, uploadUrl: data.signedUrl };
   }
-  await saveLocal(owner, doc.id, "json", doc);
   return { doc, uploadUrl: `/api/documents/${doc.id}/upload` };
+}
+export async function writeGeneratedBytes(doc: DocumentRecord, bytes: Uint8Array) {
+  if (doc.status !== "pending" || bytes.length !== doc.size) throw new RequestError("Invalid generated file reservation.", 400);
+  const db = documentClient();
+  if (!db) return saveLocalUpload(doc, bytes);
+  const { error } = await db.storage.from(BUCKET).upload(storageKey(doc), bytes, { contentType: DOCUMENT_TYPES[doc.kind], upsert: false });
+  if (error) throw new RequestError("Could not save the generated file. It will not be retried automatically.", 503);
 }
 export async function readDocumentBytes(doc: DocumentRecord): Promise<Buffer> {
   const db = documentClient();

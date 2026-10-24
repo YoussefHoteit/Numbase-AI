@@ -12,7 +12,10 @@ import { multimodalHistory } from "./multimodal-history.ts";
 import { findModel, imageLimit, supportsImages } from "../models.ts";
 import { liveRequestsEnabled, mediaAvailable, requireMedia } from "./media-config.ts";
 import { documentIds } from "../documents.ts";
-import { requireDocuments } from "./document-config.ts";
+import { requireDocuments, filesAvailable } from "./document-config.ts";
+import { generatedFileIds } from "../generated-files.ts";
+import { getDocument } from "./document-store.ts";
+import { messageContextSize } from "../extractions.ts";
 import { retrieveDocuments, addDocumentContext, waitForReadyDocuments } from "./document-retrieval.ts";
 import { toModelMessages } from "../chat-history.ts";
 export async function handleChat(request: Request, fetch?: typeof globalThis.fetch) {
@@ -38,7 +41,8 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       );
     const ids = imageIds(messages);
     const files = documentIds(messages);
-    if (!id && (ids.length || files.length)) throw new RequestError("A conversation ID is required for attachments.", 400);
+    const generated = generatedFileIds(messages);
+    if (!id && (ids.length || files.length || generated.length)) throw new RequestError("A conversation ID is required for attachments.", 400);
     const limit = imageLimit(model);
     if (limit !== undefined && ids.length > limit)
       throw new RequestError(
@@ -47,8 +51,8 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       );
     // Never discard image history silently when media configuration is unavailable.
     if (ids.length) requireMedia();
-    if (files.length) requireDocuments();
-    const session = id && (mediaAvailable() || files.length) ? mediaSession(request, true) : undefined;
+    if (files.length || generated.length) requireDocuments();
+    const session = id && (mediaAvailable() || files.length || generated.length || filesAvailable()) ? mediaSession(request, true) : undefined;
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(session ? 165_000 : 55_000)]);
     let modelMessages = session && id ? await multimodalHistory(messages, session.owner, id, supportsImages(model), signal) : undefined;
     if (session && id && files.length) {
@@ -57,6 +61,16 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       const matches = await retrieveDocuments(session.owner, id, files, recentQuestions || "Describe the attached files", signal);
       modelMessages = addDocumentContext(modelMessages ?? toModelMessages(messages), matches);
     }
+    const fileIds = [...new Set([...files, ...generated])];
+    const fileContext = session && id && filesAvailable() ? {
+      owner: session.owner, conversationId: id, turnId: messages.at(-1)!.id, allowedIds: fileIds,
+      sources: await Promise.all(fileIds.map(async (fileId) => {
+        const doc = await getDocument(session.owner, fileId, id);
+        return { id: doc.id, filename: doc.filename, version: doc.generated?.version ?? 0 };
+      })),
+      remainingCharacters: Math.max(0, 52_000 - messages.reduce((size, message) => size + messageContextSize(message), 0)),
+      remainingBytes: Math.max(0, 96_000 - new TextEncoder().encode(JSON.stringify(messages)).length),
+    } : undefined;
     const response = streamOpenRouterResponse({
       model,
       messages,
@@ -64,6 +78,7 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       apiKey,
       fetch,
       modelMessages,
+      fileContext,
       imageContext: session && id ? { owner: session.owner, conversationId: id, turnId: messages.at(-1)!.id, allowedIds: ids, selectedIds: imageIds([messages.at(-1)!]) } : undefined,
     });
     if (session?.cookie) response.headers.set("Set-Cookie", session.cookie);

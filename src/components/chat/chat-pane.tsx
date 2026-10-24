@@ -48,6 +48,8 @@ import { DocumentMessages } from "./document-messages";
 import { imageResultSchema } from "@/lib/media";
 import { ExtractionMessages } from "./extraction-messages";
 import { messageContextSize, type Extraction } from "@/lib/extractions";
+import { GeneratedFiles } from "./generated-files";
+import { createFileInputSchema, fileResultSchema } from "@/lib/generated-files";
 
 const transport = createChatTransport();
 const suggestions = [
@@ -228,6 +230,29 @@ export function ChatPane({
     clearError();
     void regenerate({ body: { model: conversation.model } });
   };
+  const checkFileStatus = async (messageId?: string) => {
+    const end = messageId ? messages.findIndex((message) => message.id === messageId) : messages.length;
+    const user = messages.slice(0, end).findLast((message) => message.role === "user");
+    if (!user || busy) return;
+    try {
+      const response = await fetch("/api/documents/generated/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: conversation.id, turnId: user.id }) });
+      if (!response.ok) throw new Error(await response.text());
+      const result = await response.json();
+      const file = fileResultSchema.safeParse(result.file);
+      const input = createFileInputSchema.safeParse(result.input);
+      if (!file.success || !input.success) {
+        toast.info(result.status === "failed" ? "The file could not be completed. No automatic retry was made." : result.status === "not-started" ? "No file has started saving for this message." : "The file is still being saved or indexed. Check again shortly.");
+        return;
+      }
+      const part = { type: "tool-createFile" as const, toolCallId: `recovered-${file.data.documentId}`, state: "output-available" as const, input: input.data, output: file.data };
+      const recovered: ChatMessage = { id: messageId ?? crypto.randomUUID(), role: "assistant", parts: [part] };
+      const next = messages.some((message) => message.id === recovered.id)
+        ? messages.map((message) => message.id === recovered.id ? { ...message, parts: [...message.parts.filter((existing) => existing.type !== "tool-createFile"), part] } : message)
+        : [...messages, recovered];
+      setMessages(next); conversations.saveMessages(conversation.id, next);
+      clearError(); toast.success("Your completed file was recovered.");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not check file status."); }
+  };
   const checkImageStatus = async (messageId?: string) => {
     const end = messageId ? messages.findIndex((message) => message.id === messageId) : messages.length;
     const user = messages.slice(0, end).findLast((message) => message.role === "user");
@@ -380,6 +405,10 @@ export function ChatPane({
                   {message.role === "assistant" && <MessageMarkdown text={text} />}
                   <DocumentMessages message={message} conversationId={conversation.id} busy={busy} allowExtraction={config?.extraction ?? false} onExtract={saveExtraction} />
                   <ExtractionMessages message={message} conversationId={conversation.id} busy={busy} onSave={saveExtraction} />
+                  <GeneratedFiles message={message} busy={busy} onCheck={() => void checkFileStatus(message.id)} onEdit={(file) => {
+                    setInput(`Edit the file ${JSON.stringify(file.filename)} (version ${file.version}) as a new copy: `);
+                    textarea.current?.focus();
+                  }} />
                   <ImageMessages message={message} busy={busy} onCheck={() => void checkImageStatus(message.id)} onAction={(action, image) => {
                     uploads.addReference({ type: "file", url: image.url, mediaType: "image/png", filename: "Generated reference" });
                     setInput(action === "edit" ? "Edit this image: " : action === "variation" ? "Create a new variation of this image, keeping its main subject and style." : "Regenerate this image using its original prompt and reference images.");
@@ -414,6 +443,7 @@ export function ChatPane({
                 This message has no completed reply yet.
                 <button type="button" onClick={regenerateResponse}>Retry last reply</button>
                 <button type="button" onClick={() => void checkImageStatus()}>Check image status</button>
+                {config?.files && <button type="button" onClick={() => void checkFileStatus()}>Check file status</button>}
               </div>
             )}
             {status === "submitted" && (
@@ -449,6 +479,7 @@ export function ChatPane({
             </span>
             <button onClick={regenerateResponse}>Retry</button>
             <button onClick={() => void checkImageStatus()}>Check image status</button>
+            {config?.files && <button onClick={() => void checkFileStatus()}>Check file status</button>}
             <button aria-label="Dismiss error" onClick={clearError}>
               <X size={15} />
             </button>

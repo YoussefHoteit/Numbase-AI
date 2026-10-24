@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { FileDraft } from "./generated-files.ts";
 
 export const DOCUMENT_LIMITS = {
   bytes: 20 * 1024 * 1024,
@@ -62,6 +63,7 @@ export type DocumentRecord = {
   checksum?: string;
   error?: string;
   warnings?: string[];
+  generated?: { version: number; parentId: string | null; draft: FileDraft };
 };
 export type DocumentSection = { location: string; text: string };
 export type DocumentChunk = DocumentSection & { index: number };
