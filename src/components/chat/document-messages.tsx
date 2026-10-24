@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import { Download, FileText, Loader2, RefreshCw } from "lucide-react";
 import type { ChatMessage } from "@/lib/chat-schema";
 import { documentIdFromUrl, type DocumentStatus } from "@/lib/documents";
+import { ExtractionPanel } from "./extraction-panel";
+import type { Extraction } from "@/lib/extractions";
 
 type FileState = { status: DocumentStatus; indexed: number; chunkCount: number; warnings: string[]; error?: string };
-function DocumentCard({ url, filename }: { url: string; filename: string }) {
+type ExtractionProps = { conversationId: string; busy: boolean; allowExtraction: boolean; onExtract: (result: Extraction) => boolean };
+function DocumentCard({ url, filename, conversationId, busy, allowExtraction, onExtract }: { url: string; filename: string } & ExtractionProps) {
   const [state, setState] = useState<FileState | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -38,10 +41,11 @@ function DocumentCard({ url, filename }: { url: string; filename: string }) {
     {state?.warnings.map((warning) => <p className="document-warning" key={warning}>{warning}</p>)}
     <div className="document-card-actions"><button type="button" aria-label={`Refresh ${filename}`} onClick={() => setRetry((value) => value + 1)}><RefreshCw size={14} />Check status</button>
       {state && <a href={`${url}?download=1`} download><Download size={14} />Original</a>}
+      {allowExtraction && state?.status === "ready" && <ExtractionPanel documentId={documentIdFromUrl(url)!} conversationId={conversationId} filename={filename} disabled={busy} onSave={onExtract} />}
     </div>
   </div>;
 }
-export function DocumentMessages({ message }: { message: ChatMessage }) {
+export function DocumentMessages({ message, ...props }: { message: ChatMessage } & ExtractionProps) {
   return <div className="message-documents">{message.parts.flatMap((part) => part.type === "file" && documentIdFromUrl(part.url)
-    ? [<DocumentCard key={part.url} url={part.url} filename={part.filename ?? "Attached document"} />] : [])}</div>;
+    ? [<DocumentCard key={part.url} url={part.url} filename={part.filename ?? "Attached document"} {...props} />] : [])}</div>;
 }

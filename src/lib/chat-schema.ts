@@ -3,6 +3,7 @@ import { LEGACY_MODELS, MODELS, resolveModelId } from "./models.ts";
 import type { UIMessage } from "ai";
 import { assetIdFromUrl, imageTypeSchema, imageOperationSchema, imageResultSchema } from "./media.ts";
 import { DOCUMENT_LIMITS, documentPartSchema, documentIds } from "./documents.ts";
+import { extractionPartSchema, messageContextSize, type Extraction } from "./extractions.ts";
 export const modelSchema = z.enum(MODELS.map((model) => model.id));
 const historicalModelSchema = z.enum([
   ...MODELS.map((model) => model.id),
@@ -13,7 +14,7 @@ export const metadataSchema = z.object({
   demo: z.boolean(),
   createdAt: z.number(),
 });
-export type ChatMessage = UIMessage<z.infer<typeof metadataSchema>>;
+export type ChatMessage = UIMessage<z.infer<typeof metadataSchema>, { extraction: Extraction }>;
 const textPart = z.object({ type: z.literal("text"), text: z.string().max(32_000) });
 const filePart = z.object({
   type: z.literal("file"),
@@ -37,7 +38,7 @@ export const messageSchema = z.object({
   id: z.string().min(1).max(128),
   role: z.enum(["user", "assistant"]),
   parts: z
-    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart]))
+    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart, extractionPartSchema]))
     .min(1)
     .max(20),
   metadata: metadataSchema.optional(),
@@ -48,6 +49,8 @@ export const messageSchema = z.object({
     context.addIssue({ code: "custom", message: "Documents must be attached by the user." });
   if (message.role === "user" && message.parts.some((part) => part.type.startsWith("tool-")))
     context.addIssue({ code: "custom", message: "User messages cannot contain tool results." });
+  if (message.role === "user" && message.parts.some((part) => part.type === "data-extraction"))
+    context.addIssue({ code: "custom", message: "Extraction results belong to assistant messages." });
 });
 export const requestSchema = z
   .object({
@@ -60,10 +63,7 @@ export const requestSchema = z
     if (lastMessage?.role !== "user")
       context.addIssue({ code: "custom", message: "End with a user message." });
     if (
-      messages.reduce(
-        (n, m) => n + m.parts.reduce((sum, p) => sum + (p.type === "text" ? p.text.length : 0), 0),
-        0,
-      ) > 64_000
+      messages.reduce((n, m) => n + messageContextSize(m), 0) > 64_000
     )
       context.addIssue({
         code: "custom",
@@ -88,4 +88,4 @@ export type Conversation = Omit<
   "messages"
 > & { messages: ChatMessage[] };
 
-export type ChatConfig = { demo: boolean; enabled: boolean; images?: boolean; documents?: boolean; generation?: boolean; storage?: "local" | "supabase" | "unavailable" };
+export type ChatConfig = { demo: boolean; enabled: boolean; images?: boolean; documents?: boolean; extraction?: boolean; generation?: boolean; storage?: "local" | "supabase" | "unavailable" };

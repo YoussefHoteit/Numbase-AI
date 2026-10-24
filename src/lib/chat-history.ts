@@ -2,6 +2,7 @@ import type { ModelMessage } from "ai";
 import type { ChatMessage } from "./chat-schema.ts";
 import { assetIdFromUrl, imageResultSchema } from "./media.ts";
 import { documentIdFromUrl } from "./documents.ts";
+import { extractionContext } from "./extractions.ts";
 
 export function snapshotTextMessages(
   messages: readonly ChatMessage[],
@@ -14,7 +15,7 @@ export function snapshotTextMessages(
       parts: message.parts.filter((part) =>
         part.type === "text" ||
         (part.type === "file" && (!!assetIdFromUrl(part.url) || !!documentIdFromUrl(part.url))) ||
-        part.type === "tool-createImage",
+        part.type === "tool-createImage" || part.type === "data-extraction",
       ).map((part) => {
         if (part.type === "text") return { type: "text" as const, text: part.text };
         if (part.type === "file") return { type: "file" as const, url: part.url, mediaType: part.mediaType, ...(part.filename ? { filename: part.filename } : {}) };
@@ -26,6 +27,10 @@ export function snapshotTextMessages(
 }
 
 export const snapshotMessages = snapshotTextMessages;
+
+export function messageText(message: ChatMessage) {
+  return message.parts.flatMap((part) => part.type === "text" ? [part.text] : part.type === "data-extraction" ? [extractionContext(part.data)] : []).join("\n");
+}
 
 export function imageIds(messages: readonly ChatMessage[]): string[] {
   return [...new Set(messages.flatMap((message) => message.parts.flatMap((part) => {
@@ -44,8 +49,6 @@ export function toModelMessages(
   // Model labels stay in the UI; every provider receives the same roles and text.
   return snapshotTextMessages(messages).map((message) => ({
     role: message.role,
-    content: message.parts
-      .flatMap((part) => (part.type === "text" ? [part.text] : []))
-      .join("\n"),
+    content: messageText(message),
   }));
 }

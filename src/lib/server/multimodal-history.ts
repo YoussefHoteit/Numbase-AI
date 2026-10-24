@@ -1,7 +1,7 @@
 import type { ModelMessage } from "ai";
 import sharp from "sharp";
 import type { ChatMessage } from "../chat-schema.ts";
-import { imageIds, toModelMessages } from "../chat-history.ts";
+import { imageIds, toModelMessages, messageText } from "../chat-history.ts";
 import { assetIdFromUrl, imageResultSchema } from "../media.ts";
 import { getAsset, readAssetBytes, type Asset } from "./media-store.ts";
 import { RequestError } from "./request.ts";
@@ -37,7 +37,7 @@ export async function multimodalHistory(messages: ChatMessage[], owner: string, 
   }
   const history: ModelMessage[] = [];
   for (const message of messages) {
-    const text = message.parts.flatMap((part) => part.type === "text" ? [part.text] : []).join("\n");
+    const text = messageText(message);
     if (message.role === "user") {
       const content: Extract<ModelMessage, { role: "user" }>["content"] = [];
       if (text) content.push({ type: "text", text });

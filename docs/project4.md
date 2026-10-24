@@ -2,6 +2,8 @@
 
 ## Approach
 
+The structured invoice/table extraction milestone adds reviewed JSON/Excel exports and saved extraction context. See [the extraction notes](structured-extraction.md) for limits, validation and setup. The hosted results below describe the earlier upload/retrieval milestone.
+
 Extend the existing chat instead of adding a separate document application. Keep originals private, save stable file references in conversation history, and let the server retrieve relevant text for any selected chat model. Existing image validation and generation remain independent.
 
 The first milestone implements upload → parse → chunk → index → retrieve → answer. Further milestones add complete summaries, structured extraction, and real generated files. The current release does not claim these later features.
@@ -51,7 +53,7 @@ Those provider/storage contract checks use synthetic data and mocks. Deployment-
 ## Remaining milestones
 
 1. Add complete multi-stage summaries covering every section, extraction over all relevant chunks, and exact spreadsheet table/range operations. Selected retrieval excerpts must never be presented as exhaustive analysis.
-2. Add schema-validated invoice/table extraction with editable previews and JSON/XLSX export.
+2. Release the locally implemented schema-validated invoice/table extraction, editable preview and JSON/XLSX export after verifying its new allowance migration and live provider behavior.
 3. Generate DOCX/XLSX/PDF/code using programmatic file writers. Support edits as new versions and preserve originals; document formatting limitations.
 4. Add document deletion/retention, cleanup of failed reservations, stalled-start recovery, and review the initial shared public quotas as usage grows.
 5. Finish real file drag/drop and clipboard checks, mixed image/document interactions, mobile/accessibility, and the final chat/image regression pass. Keep preview protection.

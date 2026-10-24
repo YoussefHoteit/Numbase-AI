@@ -1729,6 +1729,58 @@
 .image-tool-error { color: var(--destructive); }
 .image-lightbox { width: min(94vw, 1100px); max-width: min(94vw, 1100px); padding: 16px; background: var(--background); }
 .image-lightbox > img { width: 100%; max-height: 85dvh; object-fit: contain; }
+
+.document-card-actions { flex-wrap: wrap; gap: 5px 14px; }
+.extraction-result-card { margin: 12px 0; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--soft); max-width: 460px; }
+.extraction-result-card > div { display: flex; align-items: center; gap: 10px; }
+.extraction-result-card p { font-size: 13px; margin: 9px 0 4px; overflow-wrap: anywhere; }
+.extraction-result-card small { display: block; color: var(--subtle); font-size: 12px; }
+.extraction-result-card > button { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 12px; min-height: 36px; }
+.extraction-panel { width: min(900px, calc(100vw - 32px)) !important; max-width: min(900px, calc(100vw - 32px)) !important; max-height: calc(100dvh - 32px); display: flex !important; flex-direction: column; gap: 0 !important; padding: 0 !important; overflow: hidden; background: var(--background); color: var(--foreground); border: 1px solid var(--line); border-radius: 20px !important; }
+.extraction-panel { --background: #fcfbf8; --foreground: #292d28; --subtle: #777d73; --line: #e5e6dd; --soft: #f3f2ed; }
+.dark .extraction-panel { --background: #1d211e; --foreground: #e8ebe3; --subtle: #a3ada0; --line: #353c34; --soft: #252b25; }
+.extraction-heading { flex-shrink: 0; padding: 25px 28px 20px; border-bottom: 1px solid var(--line); }
+.extraction-heading h2 { font-size: 23px; line-height: 1.3; margin: 8px 30px 6px 0; }
+.extraction-heading p { overflow-wrap: anywhere; font-size: 13px; color: var(--subtle); }
+.extraction-eyebrow { font-size: 10px; letter-spacing: .15em; color: var(--subtle); }
+.extraction-body { min-height: 0; padding: 24px 28px; overflow-y: auto; }
+.extraction-options { display: grid; gap: 10px; }
+.extraction-options legend { font-size: 14px; margin-bottom: 14px; }
+.extraction-options label { display: flex; align-items: center; gap: 13px; padding: 16px; border: 1px solid var(--line); border-radius: 13px; cursor: pointer; }
+.extraction-options label:has(input:checked) { background: var(--soft); border-color: var(--subtle); }
+.extraction-options strong, .extraction-options small { display: block; }
+.extraction-options small { color: var(--subtle); font-size: 12px; margin-top: 4px; }
+.extraction-note { color: var(--subtle); font-size: 12px; line-height: 1.75; margin: 15px 0; }
+.extraction-status { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 12px; }
+.extraction-status > span:last-child { color: var(--subtle); }
+.extraction-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 22px 0; }
+.extraction-fields label { min-width: 0; }
+.extraction-fields span { display: block; font-size: 12px; margin-bottom: 6px; }
+.extraction-fields input, .extraction-table-scroll input { width: 100%; min-height: 39px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; background: var(--soft); color: var(--foreground); }
+.extraction-fields small { display: block; font-size: 10px; color: var(--subtle); margin-top: 5px; }
+.extraction-table-scroll { max-width: 100%; overflow: auto; margin-top: 22px; border: 1px solid var(--line); border-radius: 10px; }
+.extraction-table-scroll table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.extraction-table-scroll caption { text-align: left; padding: 12px; font-weight: 600; }
+.extraction-table-scroll th, .extraction-table-scroll td { border-top: 1px solid var(--line); padding: 8px; text-align: left; min-width: 130px; }
+.extraction-table-scroll th { font-weight: 500; background: var(--soft); }
+.extraction-table-scroll td:last-child { color: var(--subtle); }
+.extraction-evidence { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; }
+.extraction-evidence summary { cursor: pointer; }
+.extraction-evidence p { padding-top: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.extraction-warning { background: var(--soft); border-left: 3px solid var(--subtle); padding: 12px; font-size: 12px; line-height: 1.6; margin: 14px 0; }
+.extraction-progress { display: flex; align-items: center; gap: 10px; font-size: 13px; margin-top: 20px; }
+.extraction-footer { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 10px; padding: 16px 28px; border-top: 1px solid var(--line); }
+.extraction-footer button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 41px; padding: 10px 15px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; }
+.extraction-footer button:first-child { background: var(--foreground); color: var(--background); }
+.extraction-panel button:disabled, .extraction-panel input:disabled { opacity: .5; cursor: wait; }
+.extraction-panel button:focus-visible, .extraction-panel input:focus-visible, .extraction-table-scroll:focus-visible { outline: 2px solid var(--subtle); outline-offset: 3px; }
+@media (max-width: 600px) {
+  .extraction-panel { width: calc(100vw - 16px) !important; max-width: calc(100vw - 16px) !important; max-height: calc(100dvh - 16px); }
+  .extraction-heading, .extraction-body { padding: 20px 17px; }
+  .extraction-footer { padding: 13px 17px; }
+  .extraction-fields { grid-template-columns: 1fr; }
+  .extraction-footer button { flex: 1; }
+}
 .image-close { position: absolute; top: 12px; right: 12px; background: var(--background); z-index: 2; border-radius: 50%; }
 /* Touch devices have no hover; downloads must remain discoverable. */
 @media (hover: none), (pointer: coarse) {

@@ -11,6 +11,12 @@ export function documentsAvailable() {
 export function requireDocuments() {
   if (!documentsAvailable()) throw new RequestError("Document features are not configured yet. Text chat and available image features still work.", 503);
 }
+export function extractionsAvailable() {
+  return documentsAvailable() && process.env.NUMBASE_EXTRACTION_ENABLED === "true";
+}
+export function requireExtractions() {
+  if (!extractionsAvailable()) throw new RequestError("Structured extraction is not enabled in this workspace. File questions still work.", 503);
+}
 export function documentError(error: unknown) {
   return new Response(error instanceof RequestError ? error.message : "Document processing is temporarily unavailable. Please try again.", {
     status: error instanceof RequestError ? error.status : 500,

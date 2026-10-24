@@ -46,6 +46,8 @@ import { ImageMessages } from "./image-messages";
 import { useAttachments } from "./use-attachments";
 import { DocumentMessages } from "./document-messages";
 import { imageResultSchema } from "@/lib/media";
+import { ExtractionMessages } from "./extraction-messages";
+import { messageContextSize, type Extraction } from "@/lib/extractions";
 
 const transport = createChatTransport();
 const suggestions = [
@@ -155,6 +157,23 @@ export function ChatPane({
   const scroller = useRef<HTMLDivElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const busy = status === "streaming" || status === "submitted" || uploads.uploading;
+  function saveExtraction(result: Extraction, messageId?: string) {
+    if (busy) return false;
+    const part = { type: "data-extraction" as const, data: result };
+    const next: ChatMessage[] = messageId
+      ? messages.map((message) => message.id === messageId ? { ...message, parts: message.parts.map((existing) => existing.type === "data-extraction" ? part : existing) } : message)
+      : [...messages, { id: crypto.randomUUID(), role: "assistant", parts: [part], metadata: { modelId: result.model, demo: result.demo, createdAt: result.createdAt } }];
+    // Leave room for the next question instead of saving a result that traps the chat.
+    if (next.length >= 100 || next.reduce((total, message) => total + messageContextSize(message), 0) > 56_000 ||
+      new TextEncoder().encode(JSON.stringify(next)).length > 112_000) {
+      toast.error("This chat has little context space left. Download the extraction instead, or use a new conversation.");
+      return false;
+    }
+    setMessages(next);
+    conversations.saveMessages(conversation.id, next);
+    toast.success("Extraction saved in this conversation.");
+    return true;
+  }
   // Keep partial responses when a stream is stopped or the user leaves this chat.
   useEffect(() => {
     conversations.saveMessages(conversation.id, messages);
@@ -359,7 +378,8 @@ export function ChatPane({
                     </div>
                   )}
                   {message.role === "assistant" && <MessageMarkdown text={text} />}
-                  <DocumentMessages message={message} />
+                  <DocumentMessages message={message} conversationId={conversation.id} busy={busy} allowExtraction={config?.extraction ?? false} onExtract={saveExtraction} />
+                  <ExtractionMessages message={message} conversationId={conversation.id} busy={busy} onSave={saveExtraction} />
                   <ImageMessages message={message} busy={busy} onCheck={() => void checkImageStatus(message.id)} onAction={(action, image) => {
                     uploads.addReference({ type: "file", url: image.url, mediaType: "image/png", filename: "Generated reference" });
                     setInput(action === "edit" ? "Edit this image: " : action === "variation" ? "Create a new variation of this image, keeping its main subject and style." : "Regenerate this image using its original prompt and reference images.");
