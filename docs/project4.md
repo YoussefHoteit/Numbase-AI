@@ -52,12 +52,11 @@ Those provider/storage contract checks use synthetic data and mocks. Deployment-
 
 ## Remaining milestones
 
-1. Add complete multi-stage summaries covering every section, extraction over all relevant chunks, and exact spreadsheet table/range operations. Selected retrieval excerpts must never be presented as exhaustive analysis.
-2. Release the locally implemented schema-validated invoice/table extraction, editable preview and JSON/XLSX export after verifying its new allowance migration and live provider behavior.
-3. Generate DOCX/XLSX/PDF/code using programmatic file writers. Support edits as new versions and preserve originals; document formatting limitations.
-4. Add document deletion/retention, cleanup of failed reservations, stalled-start recovery, and review the initial shared public quotas as usage grows.
-5. Finish real file drag/drop and clipboard checks, mixed image/document interactions, mobile/accessibility, and the final chat/image regression pass. Keep preview protection.
-6. Exercise larger hosted jobs, failures, cancellation, quota boundaries, and source accuracy across long or complex files. The deterministic large-document test and hosted small-file checks cover different risks.
+1. Generate DOCX/XLSX/PDF/code using programmatic file writers. Support edits as new versions and preserve originals; document formatting limitations. Reviewed extraction exports are already implemented, but general file authoring remains separate.
+2. Add complete multi-stage summaries covering every section, extraction over all relevant chunks, and exact spreadsheet table/range operations. Selected retrieval excerpts must never be presented as exhaustive analysis.
+3. Add document deletion/retention, cleanup of failed reservations, stalled-start recovery, and review the initial shared public quotas as usage grows.
+4. Finish real file drag/drop and clipboard checks, mixed image/document interactions, mobile/accessibility, and the final chat/image regression pass. Keep preview protection.
+5. Exercise larger hosted jobs, failures, cancellation, quota boundaries, and source accuracy across long or complex files. Complete the final README/submission review after these milestones.
 
 ## Research references
 

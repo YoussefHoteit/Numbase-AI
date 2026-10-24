@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import ExcelJS from "exceljs";
-import { EXTRACTION_MODEL, INVOICE_FIELDS, extractionSchema } from "../src/lib/extractions.ts";
+import { EXTRACTION_MODEL, INVOICE_FIELDS, extractionSchema, extractionContext } from "../src/lib/extractions.ts";
 import { extractDocument, extractionSource, validateExtractionEvidence } from "../src/lib/server/document-extraction.ts";
 import { extractionWorkbook } from "../src/lib/server/extraction-export.ts";
 import { newDocumentUpload, saveChunks, updateDocument } from "../src/lib/server/document-store.ts";
@@ -168,6 +168,16 @@ test("extraction data counts toward context limits instead of bypassing the chat
   const extracted = { id: "extracted", role: "assistant", parts: [{ type: "data-extraction", data: result }] };
   const messages = [extracted, { id: "big1", role: "user", parts: [{ type: "text", text: "x".repeat(32000) }] }, { id: "big2", role: "user", parts: [{ type: "text", text: "x".repeat(32000) }] }];
   assert.equal(requestSchema.safeParse({ model: EXTRACTION_MODEL, messages }).success, false);
+});
+test("model context keeps current reviewed values separate from original evidence and edit direction", () => {
+  const edited = structuredClone(result); edited.edited = true; edited.data.fields.total.value = "1400";
+  const text = extractionContext(edited);
+  const data = JSON.parse(text.split("\n").at(-1));
+  assert.equal(data.CURRENT_REVIEWED_VALUES.fields.total, "1400");
+  assert.equal(data.ORIGINAL_SOURCE_EVIDENCE.fields.total.quote, quote);
+  assert.match(data.ORIGINAL_SOURCE_EVIDENCE.fields.total.quote, /1250/);
+  assert.doesNotMatch(data.ORIGINAL_SOURCE_EVIDENCE.fields.total.quote, /1400/);
+  assert.match(text, /Do not reverse these labels/);
 });
 test("workspace reload preserves an extraction and an unrelated healthy conversation", async () => {
   const previousStorage = globalThis.localStorage;

@@ -8,9 +8,13 @@ The ready-file card opens an invoice/table extraction panel. The server verifies
 
 The server checks each reported quote against its source section and requires each populated value to appear in that quote. This rejects unsupported values and invented citations; it is not a guarantee that the model understood every field correctly. Missing fields stay null. The first invoice or table is extracted rather than silently merging unrelated ones.
 
+For indexed spreadsheet rows, the server can reconstruct evidence from a uniquely matching source row instead of accepting the model's rewritten row formatting. Plain decimal equivalents are restored to the exact source strings. Different rows, fabricated values, locale conversions and ambiguous matches are not silently repaired.
+
 Reviewed values can be edited and exported as JSON or a real Excel workbook. Exports check source-file ownership again, are not cached publicly, and make no model call. ExcelJS receives text values rather than formula or hyperlink objects. Original uploads are unchanged.
 
 Saving adds a schema-validated data part to the existing conversation. Snapshots clone it, recovery accepts it, and both text/vision history conversion include its contents with an explicit user-edit warning. Result data counts toward the existing context budget. The UI leaves room for a follow-up instead of saving a result that would trap the conversation at its limit.
+
+Model context explicitly separates `CURRENT_REVIEWED_VALUES` from `ORIGINAL_SOURCE_EVIDENCE`. Editing a reviewed value does not change the uploaded original. Source quotes and model answers still require human review.
 
 ## Deployment prerequisites
 
@@ -38,6 +42,17 @@ Browser checks and command results are recorded in the development review beside
 Verified locally on 23 October 2026: 104 deterministic tests, both extraction/export HTTP checks, lint, TypeScript, production build and a zero-finding production dependency audit. Browser checks covered invoice extraction, missing fields, an edited total, an actual Excel download (read back as 1400), saved results after reload, context sent after a model switch, table editing, and a 390-pixel panel with contained table scrolling. Light and dark panels were inspected.
 
 The 24 October release also pins Undici 7.30.1 and deduplicates nested Zod copies to the patched direct dependency. The production audit returned zero findings again, with the regression suite and build repeated after these compatible updates. No forced audit fix or Workflow downgrade was used.
+
+## Hosted release checks — 24 October 2026
+
+- Applied the approved quota migration to the existing database. Both session/global caps were exercised inside a rolled-back transaction; anonymous and signed-in roles cannot execute the reservation function, while the server role can.
+- Enabled extraction in Production only and published to the same public Vercel domain. Public API checks passed five tests with two expected skips.
+- A real PDF invoice extraction returned the invoice number/total and left missing fields empty. Edited JSON and Excel downloads retained the reviewed total.
+- The first live CSV attempt was safely rejected by evidence validation. After source-row grounding was added, a 45-row CSV returned 40 reviewed rows with `truncated=true`, preserved source decimal formatting, and passed edited JSON/Excel download and ownership checks. Claude Haiku distinguished the reviewed 999.00 value from the original 101.00.
+- The live browser extracted a text invoice and line items, left its missing due date empty, and downloaded a workbook whose reviewed total was read back as 1300.00. The saved card survived reload. A response that reversed original/reviewed labels prompted the explicit context separation above; source data itself remained intact.
+- The deterministic suite now includes 107 passing checks, including source-row integrity, edit direction, and unrelated-conversation preservation. Four extraction-provider requests were used across verification, including the initially rejected CSV result. No paid image generation was repeated.
+
+These are bounded small-file checks, not proof of exhaustive extraction accuracy, scanned-PDF OCR or large-file performance.
 
 ## References
 
