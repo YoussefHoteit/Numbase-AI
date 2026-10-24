@@ -15,7 +15,7 @@ export function snapshotTextMessages(
       parts: message.parts.filter((part) =>
         part.type === "text" ||
         (part.type === "file" && (!!assetIdFromUrl(part.url) || !!documentIdFromUrl(part.url))) ||
-        part.type === "tool-createImage" || part.type === "data-extraction" || part.type === "tool-createFile" || part.type === "tool-readFileForEditing",
+        part.type === "tool-createImage" || part.type === "data-extraction" || part.type === "tool-createFile" || part.type === "tool-readFileForEditing" || part.type === "data-file-edit",
       ).map((part) => {
         if (part.type === "text") return { type: "text" as const, text: part.text };
         if (part.type === "file") return { type: "file" as const, url: part.url, mediaType: part.mediaType, ...(part.filename ? { filename: part.filename } : {}) };

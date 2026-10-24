@@ -13,7 +13,7 @@ import { findModel, imageLimit, supportsImages } from "../models.ts";
 import { liveRequestsEnabled, mediaAvailable, requireMedia } from "./media-config.ts";
 import { documentIds } from "../documents.ts";
 import { requireDocuments, filesAvailable } from "./document-config.ts";
-import { generatedFileIds } from "../generated-files.ts";
+import { generatedFileIds, fileEditTarget } from "../generated-files.ts";
 import { getDocument } from "./document-store.ts";
 import { messageContextSize } from "../extractions.ts";
 import { retrieveDocuments, addDocumentContext, waitForReadyDocuments } from "./document-retrieval.ts";
@@ -62,8 +62,10 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       modelMessages = addDocumentContext(modelMessages ?? toModelMessages(messages), matches);
     }
     const fileIds = [...new Set([...files, ...generated])];
+    const selectedId = fileEditTarget(messages);
+    if (selectedId && !fileIds.includes(selectedId)) throw new RequestError("Choose an existing file in this conversation to edit.", 400);
     const fileContext = session && id && filesAvailable() ? {
-      owner: session.owner, conversationId: id, turnId: messages.at(-1)!.id, allowedIds: fileIds,
+      owner: session.owner, conversationId: id, turnId: messages.at(-1)!.id, allowedIds: fileIds, selectedId,
       sources: await Promise.all(fileIds.map(async (fileId) => {
         const doc = await getDocument(session.owner, fileId, id);
         return { id: doc.id, filename: doc.filename, version: doc.generated?.version ?? 0 };

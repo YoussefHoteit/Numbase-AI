@@ -4,7 +4,7 @@ import type { UIMessage } from "ai";
 import { assetIdFromUrl, imageTypeSchema, imageOperationSchema, imageResultSchema } from "./media.ts";
 import { DOCUMENT_LIMITS, documentPartSchema, documentIds } from "./documents.ts";
 import { extractionPartSchema, messageContextSize, type Extraction } from "./extractions.ts";
-import { createFileInputSchema, fileResultSchema, generatedFileIds } from "./generated-files.ts";
+import { createFileInputSchema, fileResultSchema, generatedFileIds, fileEditPartSchema } from "./generated-files.ts";
 export const modelSchema = z.enum(MODELS.map((model) => model.id));
 const historicalModelSchema = z.enum([
   ...MODELS.map((model) => model.id),
@@ -15,7 +15,7 @@ export const metadataSchema = z.object({
   demo: z.boolean(),
   createdAt: z.number(),
 });
-export type ChatMessage = UIMessage<z.infer<typeof metadataSchema>, { extraction: Extraction }>;
+export type ChatMessage = UIMessage<z.infer<typeof metadataSchema>, { extraction: Extraction; "file-edit": { documentId: string } }>;
 const textPart = z.object({ type: z.literal("text"), text: z.string().max(32_000) });
 const filePart = z.object({
   type: z.literal("file"),
@@ -53,7 +53,7 @@ export const messageSchema = z.object({
   id: z.string().min(1).max(128),
   role: z.enum(["user", "assistant"]),
   parts: z
-    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart, extractionPartSchema, fileToolPart, readToolPart]))
+    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart, extractionPartSchema, fileToolPart, readToolPart, fileEditPartSchema]))
     .min(1)
     .max(20),
   metadata: metadataSchema.optional(),
@@ -66,6 +66,9 @@ export const messageSchema = z.object({
     context.addIssue({ code: "custom", message: "User messages cannot contain tool results." });
   if (message.role === "user" && message.parts.some((part) => part.type === "data-extraction"))
     context.addIssue({ code: "custom", message: "Extraction results belong to assistant messages." });
+  if (message.parts.filter((part) => part.type === "data-file-edit").length > 1 ||
+    (message.role !== "user" && message.parts.some((part) => part.type === "data-file-edit")))
+    context.addIssue({ code: "custom", message: "Choose one file edit target per user message." });
 });
 export const requestSchema = z
   .object({

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import ExcelJS from "exceljs";
-import { fileDraftSchema, fileResultSchema, generatedFileIds } from "../src/lib/generated-files.ts";
+import { fileDraftSchema, fileResultSchema, generatedFileIds, fileEditTarget } from "../src/lib/generated-files.ts";
 import { writeGeneratedFile } from "../src/lib/server/file-writers.ts";
 import { parseDocument } from "../src/lib/server/document-parser.ts";
 import { createFileTools, recoveredFile } from "../src/lib/server/file-tools.ts";
@@ -141,6 +141,44 @@ test("file count and remaining context are checked before another file is reserv
   await assert.rejects(call(createFileTools({ ...options("full-context"), remainingCharacters: 1 }).createFile, input), /context space/);
   await assert.rejects(call(createFileTools({ ...options("full-bytes"), remainingBytes: 1 }).createFile, input), /context space/);
   for (const turn of ["full-chat", "full-context", "full-bytes"]) assert.equal((await recoveredFile(owner, "files", turn)).status, "not-started");
+});
+
+test("explicit edit intent survives snapshots, reload and retry without trusting model parent arguments", async () => {
+  const part = { type: "data-file-edit", data: { documentId: first.documentId } };
+  const user = { id: "explicit-edit", role: "user", parts: [{ type: "text", text: "Change the total" }, part] };
+  const messages = snapshotMessages([user]);
+  assert.equal(fileEditTarget(messages), first.documentId);
+  assert.equal(requestSchema.safeParse({ id: "files", model: "openai/gpt-4.1-mini", messages }).success, true);
+  assert.equal(conversationSchema.safeParse({ id: "files", title: "Edit", model: "openai/gpt-4.1-mini", updatedAt: 1, messages }).success, true);
+  assert.equal(requestSchema.safeParse({ model: "openai/gpt-4.1-mini", messages: [{ ...user, role: "assistant" }, user] }).success, false);
+  const tools = createFileTools({ ...options("explicit-null-parent", [first.documentId]), selectedId: first.documentId });
+  const input = { parentId: null, draft: draft("docx", { paragraphs: ["Reviewed total: 1400 EUR."] }) };
+  await assert.rejects(call(tools.createFile, input), /Read the complete source/);
+  await call(tools.readFileForEditing, { documentId: crypto.randomUUID() });
+  const output = await call(tools.createFile, input);
+  assert.equal(output.parentId, first.documentId); assert.equal(output.version, 2);
+  assert.equal((await getDocument(owner, first.documentId)).generated.draft.paragraphs[0], base.paragraphs[0]);
+});
+
+test("a saved file remains available when the provider's final confirmation fails", async () => {
+  let calls = 0;
+  const config = { ...options("failed-confirmation", [first.documentId]), selectedId: first.documentId };
+  const response = streamOpenRouterResponse({ model: "openai/gpt-4.1-mini", apiKey: "synthetic-not-a-key", signal: AbortSignal.timeout(10_000), messages: [{ id: "failed-confirmation", role: "user", parts: [{ type: "text", text: "Edit this file" }] }], fileContext: config,
+    fetch: async (_url, init) => {
+      calls++; const payload = JSON.parse(init.body);
+      if (calls === 3) return Response.json({ error: { message: "Synthetic provider interruption" } }, { status: 503 });
+      if (calls === 1) assert.equal(payload.tool_choice.function.name, "readFileForEditing");
+      const name = calls === 1 ? "readFileForEditing" : "createFile";
+      const input = calls === 1 ? { documentId: first.documentId } : { parentId: null, draft: draft("docx", { paragraphs: ["Reviewed total: 1400 EUR."] }) };
+      const common = { id: "mock", object: "chat.completion.chunk", created: 1, model: "openai/gpt-4.1-mini" };
+      return new Response(`data: ${JSON.stringify({ ...common, choices: [{ index: 0, delta: { role: "assistant", tool_calls: [{ index: 0, id: name, type: "function", function: { name, arguments: JSON.stringify(input) } }] }, finish_reason: null }] })}\n\ndata: ${JSON.stringify({ ...common, choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] })}\n\ndata: [DONE]\n\n`, { headers: { "Content-Type": "text/event-stream" } });
+    },
+  });
+  const body = await response.text();
+  assert.match(body, /tool-output-available/); assert.match(body, /Your file was saved, but the final reply was interrupted/);
+  assert.equal(calls, 3, "No automatic paid retry");
+  const saved = await recoveredFile(owner, "files", "failed-confirmation");
+  assert.equal(saved.status, "ready"); assert.equal(saved.file.parentId, first.documentId); assert.equal(saved.file.version, 2);
 });
 
 test("actual SDK partial file arguments survive recovery alongside an unrelated chat", async () => {

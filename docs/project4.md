@@ -6,7 +6,7 @@ The structured invoice/table extraction milestone adds reviewed JSON/Excel expor
 
 Extend the existing chat instead of adding a separate document application. Keep originals private, save stable file references in conversation history, and let the server retrieve relevant text for any selected chat model. Existing image validation and generation remain independent.
 
-The first milestone implements upload → parse → chunk → index → retrieve → answer. Structured extraction was subsequently released. Optional real file generation/editing is implemented in this development source; see [file generation](file-generation.md). Its hosted activation remains separate from local tests. Complete summaries remain a later milestone.
+The first milestone implements upload → parse → chunk → index → retrieve → answer. Structured extraction was subsequently released. File generation/editing uses server-side writers; see [file generation](file-generation.md) for limits and deployment checks. Complete summaries remain a later milestone.
 
 ### Libraries and hosting
 
@@ -52,11 +52,10 @@ Those provider/storage contract checks use synthetic data and mocks. Deployment-
 
 ## Remaining milestones
 
-1. Verify and activate the optional DOCX/XLSX/PDF/code writers on the hosted deployment, including private download/indexing, storage capacity, and bounded real-model edits. Local generation preserves originals and saves new versions; see the file-generation notes for formatting and size limitations.
-2. Add complete multi-stage summaries covering every section, extraction over all relevant chunks, and exact spreadsheet table/range operations. Selected retrieval excerpts must never be presented as exhaustive analysis.
-3. Add document deletion/retention, cleanup of failed reservations, stalled-start recovery, and review the initial shared public quotas as usage grows.
-4. Finish real file drag/drop and clipboard checks, mixed image/document interactions, mobile/accessibility, and the final chat/image regression pass. Keep preview protection.
-5. Exercise larger hosted jobs, failures, cancellation, quota boundaries, and source accuracy across long or complex files. Complete the final README/submission review after these milestones.
+1. Add complete multi-stage summaries covering every section, extraction over all relevant chunks, and exact spreadsheet table/range operations. Selected retrieval excerpts must never be presented as exhaustive analysis.
+2. Add document deletion/retention, cleanup of failed reservations, stalled-start recovery, and review the initial shared public quotas as usage grows.
+3. Finish real file drag/drop and clipboard checks, mixed image/document interactions, mobile/accessibility, and the final chat/image regression pass. Keep preview protection.
+4. Exercise larger hosted jobs, failures, cancellation, quota boundaries, and source accuracy across long or complex files. Complete the final README/submission review after these milestones.
 
 ## Research references
 

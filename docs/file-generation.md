@@ -10,7 +10,7 @@ The chat model can call `createFile` to write a real DOCX, PDF, XLSX, or code fi
 4. A chat card shows the format, version, size, download, and an edit action. The download uses the existing owner-protected document route; no public permanent URL is sent to a model.
 5. Follow-up models receive the exact saved generated draft from private storage, rather than trusting browser-supplied tool inputs. The file remains searchable through its saved chunks.
 
-For an edit, `readFileForEditing` must load the complete source first. Its owner and conversation must match. Inputs larger than 12 chunks or 24,000 source characters are rejected for a complete edit; they remain available for ordinary retrieval questions. The tool then writes a new document with a parent reference and an incremented version for generated sources. Uploaded originals remain untouched. Edits to original uploads start at version 1 of the derived file.
+The Edit a copy action saves the exact selected file with the user message, so reloads and retries retain the target. The server forces a complete source read first and retains that parent even if the model omits it. For an edit, `readFileForEditing` must load the complete source first. Its owner and conversation must match. Inputs larger than 12 chunks or 24,000 source characters are rejected for a complete edit; they remain available for ordinary retrieval questions. The tool then writes a new document with a parent reference and an incremented version for generated sources. Uploaded originals remain untouched. Edits to original uploads start at version 1 of the derived file.
 
 ## Bounds and costs
 
@@ -18,7 +18,7 @@ For an edit, `readFileForEditing` must load the complete source first. Its owner
 - Up to 60 paragraphs, or a table with 100 rows and 12 columns. PDF output is capped at 60 pages.
 - Existing shared upload reservations apply to both uploads and generated versions: 5 files per session, 25 globally, and 5/20 new files per session/global day. These are capacity limits, not a promise of continuous public availability. Deletion/retention remains a later milestone.
 - Indexing calls the existing OpenRouter embedding model once for a bounded batch, with no paid retry. Chat tool loops stop after four steps; file-enabled chat uses no automatic provider retries. Downloads and status checks make no model calls.
-- A deterministic turn ID prevents duplicate output reservations across instances. A completed file can be recovered through “Check file status.” Failed or unfinished reservations are not restarted automatically. A failed file can still occupy storage allowance until lifecycle cleanup is implemented.
+- A deterministic turn ID prevents duplicate output reservations across instances. A completed file can be recovered through “Check file status.” If the provider fails after the file is saved, the error explicitly confirms the file remains available. Failed or unfinished reservations are not restarted automatically. A failed file can still occupy storage allowance until lifecycle cleanup is implemented.
 
 ## Limitations
 

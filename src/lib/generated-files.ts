@@ -37,6 +37,12 @@ export const fileResultSchema = z.strictObject({
   url: z.string(),
 }).refine((result) => result.url === documentUrl(result.documentId), "Invalid file download.");
 export type FileResult = z.infer<typeof fileResultSchema>;
+export const fileEditPartSchema = z.strictObject({ type: z.literal("data-file-edit"), data: z.strictObject({ documentId: z.uuid() }) });
+export function fileEditTarget(messages: readonly { role: string; parts: readonly { type: string; data?: unknown }[] }[]) {
+  const part = messages.findLast((message) => message.role === "user")?.parts.find((part) => part.type === "data-file-edit");
+  const parsed = fileEditPartSchema.safeParse(part);
+  return parsed.success ? parsed.data.data.documentId : undefined;
+}
 
 export function generatedFileIds(messages: readonly { parts: readonly { type: string; state?: string; output?: unknown }[] }[]) {
   return [...new Set(messages.flatMap((message) => message.parts.flatMap((part) => {

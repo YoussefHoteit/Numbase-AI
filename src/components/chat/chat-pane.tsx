@@ -49,7 +49,7 @@ import { imageResultSchema } from "@/lib/media";
 import { ExtractionMessages } from "./extraction-messages";
 import { messageContextSize, type Extraction } from "@/lib/extractions";
 import { GeneratedFiles } from "./generated-files";
-import { createFileInputSchema, fileResultSchema } from "@/lib/generated-files";
+import { createFileInputSchema, fileResultSchema, type FileResult } from "@/lib/generated-files";
 
 const transport = createChatTransport();
 const suggestions = [
@@ -151,6 +151,7 @@ export function ChatPane({
       },
     });
   const [input, setInput] = useState("");
+  const [editTarget, setEditTarget] = useState<FileResult | null>(null);
   const uploads = useAttachments(conversation.id);
   const filePicker = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -220,7 +221,11 @@ export function ChatPane({
     try {
       const files = await uploads.upload();
       setInput((current) => current.trim() === text ? "" : current); uploads.clear(); clearError(); setNearBottom(true);
-      await sendMessage({ text, files }, { body: { model: conversation.model } });
+      const target = editTarget; setEditTarget(null);
+      await sendMessage({ role: "user", parts: [
+        ...(text ? [{ type: "text" as const, text }] : []), ...files,
+        ...(target ? [{ type: "data-file-edit" as const, data: { documentId: target.documentId } }] : []),
+      ] }, { body: { model: conversation.model } });
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError"))
         toast.error(error instanceof Error ? error.message : "The files could not be uploaded. Please try again.");
@@ -406,6 +411,7 @@ export function ChatPane({
                   <DocumentMessages message={message} conversationId={conversation.id} busy={busy} allowExtraction={config?.extraction ?? false} onExtract={saveExtraction} />
                   <ExtractionMessages message={message} conversationId={conversation.id} busy={busy} onSave={saveExtraction} />
                   <GeneratedFiles message={message} busy={busy} onCheck={() => void checkFileStatus(message.id)} onEdit={(file) => {
+                    setEditTarget(file);
                     setInput(`Edit the file ${JSON.stringify(file.filename)} (version ${file.version}) as a new copy: `);
                     textarea.current?.focus();
                   }} />
@@ -501,6 +507,7 @@ export function ChatPane({
           <input ref={filePicker} type="file" accept="image/jpeg,image/png,image/webp,.pdf,.docx,.xlsx,.csv,.txt,.md,.markdown,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.sql,.html,.css,.scss,.json,.yaml,.yml,.xml,.sh,.ps1,.r,.lua,.toml,.ini,.log" multiple hidden onChange={(event) => {
             addFiles(Array.from(event.target.files ?? [])); event.target.value = "";
           }} />
+          {editTarget && <div className="file-edit-target" role="status"><FileText size={16} /><span>Editing {editTarget.filename} · Version {editTarget.version}</span><button type="button" disabled={busy} onClick={() => setEditTarget(null)} aria-label="Cancel file edit"><X size={15} /></button></div>}
           {uploads.attachments.length > 0 && <div className="attachment-tray" aria-label="Files ready to send">{uploads.attachments.map((item) => <div className={item.isImage ? "draft-image" : "draft-document"} key={item.id} title={item.name}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {item.isImage ? <img src={item.preview} alt={item.name} /> : <><FileText size={24} /><span>{item.name}</span></>}

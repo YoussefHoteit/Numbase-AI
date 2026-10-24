@@ -63,7 +63,8 @@ appTest(
     const response = await fetch(`${base}/api/config`);
     assert.equal(response.status, 200);
     const config = await response.json();
-    assert.deepEqual(Object.keys(config).sort(), ["demo", "documents", "enabled", "extraction", "generation", "images", "storage"]);
+    assert.deepEqual(Object.keys(config).sort(), ["demo", "documents", "enabled", "extraction", "files", "generation", "images", "storage"]);
+    assert.equal(typeof config.files, "boolean");
     assert.equal(typeof config.documents, "boolean");
     assert.equal(typeof config.demo, "boolean");
     assert.equal(typeof config.enabled, "boolean");
