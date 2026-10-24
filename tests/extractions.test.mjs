@@ -77,6 +77,20 @@ test("fabricated values, forged quotes and invalid section IDs are rejected", ()
     assert.throws(() => validateExtractionEvidence({ ...result, data: { ...invoice, fields: { ...fields, total: field } } }, chunks), /ground/);
   }
 });
+test("spreadsheet rows rebuild exact evidence and restore decimal formatting from a unique matching row", () => {
+  const source = [{ index: 0, location: "CSV, row 1", text: "1: Product | 2: Amount\n[CSV, row 2] 1: Blue barrel | 2: 320.00" }];
+  const extracted = { ...base, kind: "table", data: { ...table, rows: [{ cells: ["Blue barrel", "320"], evidence: { chunk: 0, quote: "Blue barrel | 320" } }] } };
+  validateExtractionEvidence(extracted, source);
+  assert.deepEqual(extracted.data.rows[0].cells, ["Blue barrel", "320.00"]);
+  assert.equal(extracted.data.rows[0].evidence.quote, "[CSV, row 2] 1: Blue barrel | 2: 320.00");
+});
+test("spreadsheet evidence never combines separate rows or accepts fabricated values or ambiguous formatting", () => {
+  const source = [{ index: 0, location: "CSV, row 1", text: "1: Blue barrel | 2: 1250\n[CSV, row 2] 1: Red barrel | 2: 320.00" }];
+  for (const cells of [["Blue barrel", "320"], ["Blue barrel", "9000"], ["Blue barrel", "1,250"]]) {
+    const extracted = { ...base, kind: "table", data: { ...table, rows: [{ cells, evidence: { chunk: 0, quote: cells.join(" | ") } }] } };
+    assert.throws(() => validateExtractionEvidence(extracted, source), /row 1/);
+  }
+});
 test("ownership, conversation, readiness and whole-file limits fail before a paid call", async () => {
   const doc = await localFile();
   await assert.rejects(extractionSource(crypto.randomUUID(), "chat", doc.id), /unavailable/);
