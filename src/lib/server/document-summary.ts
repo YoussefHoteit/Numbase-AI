@@ -1,6 +1,6 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
-import { SUMMARY_MODEL, SUMMARY_LIMITS, SUMMARY_VERSION, summaryJobSchema, type SummaryJob } from "../document-summary.ts";
+import { SUMMARY_MODEL, SUMMARY_LIMITS, SUMMARY_VERSION, summaryJobSchema, summaryText, type SummaryJob } from "../document-summary.ts";
 import { getDocument, getChunks, documentClient, updateDocument, localDocumentLock } from "./document-store.ts";
 import { checkedSections } from "./document-reading.ts";
 import { RequestError } from "./request.ts";
@@ -128,7 +128,7 @@ export async function summaryStep(owner: string, id: string, jobId: string, fetc
     if (generated.finishReason !== "stop" || !text || text.length > (target === "result" ? SUMMARY_LIMITS.resultCharacters : SUMMARY_LIMITS.noteCharacters))
       throw new RequestError("The model did not finish a valid summary. No automatic retry was made.", 502);
     const next: SummaryJob = { ...claimed, active: false };
-    if (target === "result") { next.result = text; next.status = "ready"; }
+    if (target === "result") { next.result = summaryText({ ...next, result: text }); next.status = "ready"; }
     else { next[target] = [...next[target], { start, end, text }]; if (target === "notes") next.completedSections = end; }
     const saved = await changeSummary(owner, id, claimed, next);
     return !!saved && saved.status !== "ready";

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { selectSourceFacts } from "../src/lib/source-facts.ts";
 import { suppressModelDownload } from "../src/lib/download-links.ts";
-import { publicSummary } from "../src/lib/document-summary.ts";
+import { publicSummary, summaryText } from "../src/lib/document-summary.ts";
 import { beginSummary } from "../src/lib/server/document-summary.ts";
 import { newDocumentUpload, saveLocalUpload, saveChunks, getDocument, updateDocument, setDocumentRemoved, readDocumentBytes, listDocuments, documentLocalFile } from "../src/lib/server/document-store.ts";
 import { purgeDocument } from "../src/lib/server/document-purge.ts";
@@ -92,7 +92,7 @@ test("purged source files do not break unrelated ordinary chat context", async (
   await setDocumentRemoved(doc.owner, doc.id, "purged-chat", true); await purgeDocument(doc.owner, doc.id, "purged-chat", "old.txt");
   const messages = [{ id: "first", role: "user", parts: [{ type: "text", text: "Remember Summit." }, { type: "file", filename: doc.filename, mediaType: "text/plain", url: "/api/documents/" + doc.id }] }, { id: "last", role: "user", parts: [{ type: "text", text: "What project name did I give?" }] }];
   const response = await handleChat(new Request("http://127.0.0.1/api/chat", { method: "POST", headers: { origin: "http://127.0.0.1", host: "127.0.0.1", cookie: session.cookie.split(";")[0], "Content-Type": "application/json" }, body: JSON.stringify({ id: "purged-chat", model: "openai/gpt-4.1-mini", messages }) }), async (_url, init) => {
-    assert.match(init.body, /Summit/);
+    assert.match(init.body, /Summit/); assert.match(init.body, /Permanently deleted/);
     const common = { id: "synthetic", object: "chat.completion.chunk", created: 1, model: "openai/gpt-4.1-mini" };
     return new Response("data: " + JSON.stringify({ ...common, choices: [{ index: 0, delta: { content: "Summit." }, finish_reason: null }] }) + "\n\ndata: " + JSON.stringify({ ...common, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] }) + "\n\ndata: [DONE]\n\n", { headers: { "Content-Type": "text/event-stream" } });
   });
@@ -131,3 +131,17 @@ test("hosted purge releases metadata only after Storage API deletion succeeds", 
   } finally { delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY; globalThis.fetch = async () => assert.fail("No real network"); }
 });
 
+
+test("cached summary prose cannot repeat inferred layout or placeholder absence claims", () => {
+  const sourceFacts = [{ section: 201, location: "lines 2501–2550", quote: "Approved amount EUR 1250." }];
+  const job = { result: "## Summary\n\n### Sections Summary\n- **Sections 201–4950**: Only placeholder text.\n- All sections contain no meaningful facts.\n\n### Key points\n- Project name: Northern Harbor.\n- Approved amount: EUR 1250 [report.md, lines 2501–2550].\n\n### SourceFacts\n- Duplicate model-authored source block.", sourceFacts };
+  const result = summaryText(job);
+  assert.match(result, /Northern Harbor/); assert.match(result, /EUR 1250/); assert.match(result, /lines 2501/);
+  assert.doesNotMatch(result, /placeholder|All sections|201–4950|SourceFacts|Duplicate/);
+  assert.equal(publicSummary(job).result, result); assert.deepEqual(publicSummary(job).sourceFacts, sourceFacts);
+});
+test("an empty filtered synthesis falls back to actual source passages", () => {
+  const job = { result: "## Summary\n- Each section has 50 lines.\n- Only placeholder text.", sourceFacts: [{ section: 1, location: "paragraph 1", quote: "Project name Northern Harbor." }] };
+  assert.match(summaryText(job), /Project name Northern Harbor/);
+  assert.doesNotMatch(summaryText(job), /placeholder|50 lines/);
+});

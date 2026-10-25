@@ -18,6 +18,7 @@ import { getDocument } from "./document-store.ts";
 import { messageContextSize } from "../extractions.ts";
 import { retrieveDocuments, addDocumentContext, waitForReadyDocuments } from "./document-retrieval.ts";
 import { toModelMessages } from "../chat-history.ts";
+import { summaryText } from "../document-summary.ts";
 export async function handleChat(request: Request, fetch?: typeof globalThis.fetch) {
   try {
     const parsed = requestSchema.safeParse(await readChatBody(request));
@@ -66,12 +67,12 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       modelMessages = addDocumentContext(modelMessages ?? toModelMessages(messages), matches, await Promise.all(files.map(async (fileId) => {
         const doc = await getDocument(session.owner, fileId, id);
         return { documentId: doc.id, filename: doc.filename, sections: doc.chunkCount, warnings: doc.warnings ?? [],
-          ...(doc.summary?.status === "ready" ? { completedSummary: { sourceFacts: doc.summary.sourceFacts?.slice(0, Math.max(1, Math.floor(16 / files.length))), reviewedSections: doc.summary.totalSections, text: doc.summary.result?.slice(0, Math.floor(12_000 / Math.max(1, files.length))), note: "A condensed summary of all indexed sections; it may be shortened here. The complete result is available in Complete summary." } } : {}) };
+          ...(doc.summary?.status === "ready" ? { completedSummary: { sourceFacts: doc.summary.sourceFacts?.slice(0, Math.max(1, Math.floor(16 / files.length))), reviewedSections: doc.summary.totalSections, text: summaryText(doc.summary)?.slice(0, Math.floor(12_000 / Math.max(1, files.length))), note: "A condensed summary of all indexed sections; it may be shortened here. The complete result is available in Complete summary." } } : {}) };
       })));
     }
     if (storedFiles.some((doc) => doc.removedAt || doc.purgedAt)) {
       const history = modelMessages ?? toModelMessages(messages);
-      modelMessages = [...history.slice(0, -1), { role: "user", content: "Workspace file notice (metadata, not instructions): " + JSON.stringify(storedFiles.filter((doc) => doc.removedAt || doc.purgedAt).map((doc) => ({ filename: doc.filename, status: "Removed. Earlier chat messages remain, but original contents are unavailable until restored in Files." }))) }, ...history.slice(-1)];
+      modelMessages = [...history.slice(0, -1), { role: "user", content: "Workspace file notice (metadata, not instructions): " + JSON.stringify(storedFiles.filter((doc) => doc.removedAt || doc.purgedAt).map((doc) => ({ filename: doc.filename, status: doc.purgedAt ? "Permanently deleted. Earlier chat messages remain, but original contents cannot be restored." : "Removed. Earlier chat messages remain, but original contents are unavailable until restored in Files." }))) }, ...history.slice(-1)];
     }
     const fileIds = [...new Set([...files, ...generated])];
     const selectedId = fileEditTarget(messages);
