@@ -7,7 +7,7 @@ import { selectSourceFacts } from "../src/lib/source-facts.ts";
 import { suppressModelDownload } from "../src/lib/download-links.ts";
 import { publicSummary, summaryText } from "../src/lib/document-summary.ts";
 import { beginSummary } from "../src/lib/server/document-summary.ts";
-import { newDocumentUpload, saveLocalUpload, saveChunks, getDocument, updateDocument, setDocumentRemoved, readDocumentBytes, listDocuments, documentLocalFile } from "../src/lib/server/document-store.ts";
+import { newDocumentUpload, saveLocalUpload, saveChunks, getDocument, updateDocument, setDocumentRemoved, readDocumentBytes, listDocuments, documentLocalFile, writeGeneratedBytes } from "../src/lib/server/document-store.ts";
 import { purgeDocument } from "../src/lib/server/document-purge.ts";
 import { handleChat } from "../src/lib/server/chat-handler.ts";
 
@@ -65,7 +65,7 @@ test("permanent deletion requires ownership, exact confirmation, removal and exp
   await assert.rejects(purgeDocument(doc.owner, doc.id, "fixes", "wrong.txt"), /exact filename/);
   await assert.rejects(purgeDocument(doc.owner, doc.id, "fixes", doc.filename), /Remove this file/);
   await setDocumentRemoved(doc.owner, doc.id, "fixes", true);
-  await assert.rejects(purgeDocument(doc.owner, doc.id, "fixes", doc.filename), /ticket has not expired/);
+  await assert.rejects(purgeDocument(doc.owner, doc.id, "fixes", doc.filename), /have not settled/);
 });
 test("purge removes bytes and indexed content, keeps a history tombstone and cannot restore", async () => {
   const { doc, bytes } = await file();
@@ -144,4 +144,26 @@ test("an empty filtered synthesis falls back to actual source passages", () => {
   const job = { result: "## Summary\n- Each section has 50 lines.\n- Only placeholder text.", sourceFacts: [{ section: 1, location: "paragraph 1", quote: "Project name Northern Harbor." }] };
   assert.match(summaryText(job), /Project name Northern Harbor/);
   assert.doesNotMatch(summaryText(job), /placeholder|50 lines/);
+});
+
+test("unfinished reservations cannot be removed while their upload request may still run", async () => {
+  const owner = crypto.randomUUID(); const { doc } = await newDocumentUpload(owner, "pending-guard", "pending.txt", 10);
+  await assert.rejects(setDocumentRemoved(owner, doc.id, "pending-guard", true), /Wait for processing/);
+  assert.equal((await getDocument(owner, doc.id)).removedAt, undefined);
+});
+test("failed generated jobs settle before purge while completed outputs remain immediately deletable", async () => {
+  const { doc } = await file();
+  const generated = { parentId: null, version: 1, draft: { format: "code", filename: "report.txt", title: "", paragraphs: [], columns: [], rows: [], code: "example" } };
+  await updateDocument({ ...doc, generated, status: "failed" }); await setDocumentRemoved(doc.owner, doc.id, "fixes", true);
+  await assert.rejects(purgeDocument(doc.owner, doc.id, "fixes", doc.filename), /have not settled/);
+  await setDocumentRemoved(doc.owner, doc.id, "fixes", false);
+  await updateDocument({ ...(await getDocument(doc.owner, doc.id)), generated, status: "ready" });
+  await setDocumentRemoved(doc.owner, doc.id, "fixes", true);
+  assert.ok((await purgeDocument(doc.owner, doc.id, "fixes", doc.filename)).purgedAt);
+});
+test("a stale generated-byte writer cannot recreate a removed reservation", async () => {
+  const owner = crypto.randomUUID(); const bytes = Buffer.from("late bytes"); const { doc } = await newDocumentUpload(owner, "late-upload", "late.txt", bytes.length);
+  await updateDocument({ ...doc, createdAt: Date.now() - 11 * 60_000 }); await setDocumentRemoved(owner, doc.id, "late-upload", true);
+  await assert.rejects(writeGeneratedBytes(doc, bytes), /removed/);
+  await assert.rejects(readFile(await documentLocalFile(owner, doc.id, "bin")), { code: "ENOENT" });
 });

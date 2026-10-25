@@ -45,7 +45,7 @@ export function FileManager() {
           {state?.files.length === 0 && <p>No documents uploaded in this browser yet.</p>}
           <ul className="managed-files">{state?.files.map((file) => <li key={file.id}>
             <div><strong>{file.filename}</strong><small>{file.purgePendingAt ? "Deletion awaiting cleanup" : file.removedAt ? "Removed · Restorable" : file.status}</small>
-              {!!file.removedAt && (file.purgeAfter ?? Infinity) > checkedAt && <small>Permanent deletion is available after {new Date(file.purgeAfter!).toLocaleString()}; the signed upload ticket must expire first.</small>}</div>
+              {!!file.removedAt && (file.purgeAfter ?? Infinity) > checkedAt && <small>Permanent deletion is available after {new Date(file.purgeAfter!).toLocaleString()}; earlier requests and upload tickets must settle first.</small>}</div>
             <div className="managed-file-actions">
               {!file.purgePendingAt && <button type="button" disabled={busy} onClick={() => void change(file)} aria-label={(file.removedAt ? "Restore " : "Remove ") + file.filename}>{file.removedAt ? <RotateCcw size={15} /> : <Trash2 size={15} />}{file.removedAt ? "Restore" : "Remove"}</button>}
               {!!file.removedAt && <button type="button" disabled={busy || (file.purgeAfter ?? Infinity) > checkedAt} onClick={() => { setDeleting(file); setConfirmation(""); setError(""); }} aria-label={"Permanently delete " + file.filename}>{file.purgePendingAt ? "Retry deletion" : "Delete permanently"}</button>}

@@ -4,7 +4,7 @@ import { setTimeout as pause } from "node:timers/promises";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { DOCUMENT_LIMITS, DOCUMENT_TYPES, documentKind, type DocumentRecord, type DocumentChunk, type DocumentStatus } from "../documents.ts";
+import { DOCUMENT_LIMITS, DOCUMENT_TYPES, documentKind, documentPurgeAfter, type DocumentRecord, type DocumentChunk, type DocumentStatus } from "../documents.ts";
 import { RequestError } from "./request.ts";
 
 const BUCKET = "numbase-documents";
@@ -122,6 +122,7 @@ export async function newDocumentUpload(owner: string, conversationId: string, f
 }
 export async function writeGeneratedBytes(doc: DocumentRecord, bytes: Uint8Array) {
   if (doc.status !== "pending" || bytes.length !== doc.size) throw new RequestError("Invalid generated file reservation.", 400);
+  assertDocumentActive(await getDocument(doc.owner, doc.id, doc.conversationId));
   const db = documentClient();
   if (!db) return saveLocalUpload(doc, bytes);
   const { error } = await db.storage.from(BUCKET).upload(documentObjectKey(doc), bytes, { contentType: DOCUMENT_TYPES[doc.kind], upsert: false });
@@ -150,7 +151,7 @@ export async function documentDownload(doc: DocumentRecord) {
   return data.signedUrl;
 }
 export function publicDocument(doc: DocumentRecord) {
-  return { id: doc.id, url: `/api/documents/${doc.id}`, filename: doc.filename, mediaType: DOCUMENT_TYPES[doc.kind], size: doc.size, status: doc.purgedAt ? "deleted" : doc.removedAt ? "removed" : doc.status, removedAt: doc.removedAt, purgedAt: doc.purgedAt, purgePendingAt: doc.purgePendingAt, purgeAfter: doc.generated ? doc.createdAt : doc.createdAt + 125 * 60_000, indexed: doc.indexed, chunkCount: doc.chunkCount, error: doc.error, warnings: doc.warnings ?? [] };
+  return { id: doc.id, url: `/api/documents/${doc.id}`, filename: doc.filename, mediaType: DOCUMENT_TYPES[doc.kind], size: doc.size, status: doc.purgedAt ? "deleted" : doc.removedAt ? "removed" : doc.status, removedAt: doc.removedAt, purgedAt: doc.purgedAt, purgePendingAt: doc.purgePendingAt, purgeAfter: documentPurgeAfter(doc), indexed: doc.indexed, chunkCount: doc.chunkCount, error: doc.error, warnings: doc.warnings ?? [] };
 }
 export type IndexedChunk = DocumentChunk & { embedding?: number[] };
 export async function saveChunks(doc: DocumentRecord, chunks: IndexedChunk[]) {
@@ -213,7 +214,7 @@ export async function setDocumentRemoved(owner: string, id: string, conversation
     const doc = await getDocument(owner, id, conversationId);
     if (doc.purgedAt || doc.purgePendingAt) throw new RequestError("This file is permanently deleted or awaiting deletion cleanup.", 410);
     if (removed === !!doc.removedAt) return doc;
-    if (removed && ["queued", "processing"].includes(doc.status) && Date.now() - doc.createdAt < 10 * 60_000) throw new RequestError("Wait for processing to finish before removing this file.", 409);
+    if (removed && ["pending", "queued", "processing"].includes(doc.status) && Date.now() - doc.createdAt < 10 * 60_000) throw new RequestError("Wait for processing to finish before removing this file.", 409);
     if (!removed && (await listDocuments(owner)).filter((file) => !file.removedAt).length >= 5) throw new RequestError("Remove another file before restoring this one.", 409);
     const next = { ...doc };
     if (removed) {

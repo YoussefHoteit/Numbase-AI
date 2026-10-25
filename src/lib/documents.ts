@@ -70,6 +70,11 @@ export type DocumentRecord = {
   purgedAt?: number;
   purgePendingAt?: number;
 };
+// Completed generated files have no live upload ticket. Other generated jobs
+// wait past their bounded requests; signed browser uploads wait past ticket expiry.
+export function documentPurgeAfter(doc: Pick<DocumentRecord, "createdAt" | "generated" | "status">) {
+  return doc.createdAt + (doc.generated ? doc.status === "ready" ? 0 : 10 * 60_000 : 125 * 60_000);
+}
 export type DocumentSection = { location: string; text: string };
 export type DocumentChunk = DocumentSection & { index: number };
 export type DocumentMatch = DocumentChunk & { documentId: string; filename: string; score: number };
