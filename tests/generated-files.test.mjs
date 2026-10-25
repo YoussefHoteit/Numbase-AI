@@ -221,3 +221,9 @@ test("the real SDK calls the file tool and streams its confirmed download", asyn
   });
   const body = await response.text(); assert.match(body, /tool-output-available/); assert.match(body, /hello.ts/); assert.equal(calls, 2);
 });
+
+test("removed historical files still count toward the finite conversation reference limit", async () => {
+  const tools = createFileTools({ ...options("full-history"), totalFiles: 8 });
+  await assert.rejects(call(tools.createFile, { parentId: null, draft: draft("docx") }), /file limit/);
+  assert.equal((await recoveredFile(owner, "files", "full-history")).status, "not-started");
+});

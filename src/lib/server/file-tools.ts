@@ -24,10 +24,11 @@ export async function recoveredFile(owner: string, conversationId: string, turnI
   } catch (error) { if (error instanceof RequestError && error.status === 404) return { status: "not-started" }; throw error; }
 }
 
-export function createFileTools({ owner, conversationId, turnId, allowedIds, signal, remainingCharacters = 24_000, remainingBytes = 96_000, selectedId, onSaved }: {
+export function createFileTools({ owner, conversationId, turnId, allowedIds, signal, remainingCharacters = 24_000, remainingBytes = 96_000, totalFiles = allowedIds.length, selectedId, onSaved }: {
   owner: string; conversationId: string; turnId: string; allowedIds: string[]; signal: AbortSignal;
   remainingCharacters?: number;
   remainingBytes?: number;
+  totalFiles?: number;
   selectedId?: string;
   onSaved?: (file: FileResult) => void;
 }) {
@@ -68,7 +69,7 @@ export function createFileTools({ owner, conversationId, turnId, allowedIds, sig
         const prior = await recoveredFile(owner, conversationId, turnId);
         if (prior.file) { onSaved?.(prior.file); return prior.file; }
         if (prior.status !== "not-started") throw new RequestError("This file already started. Check its status; it will not retry automatically.", 409);
-        if (allowedIds.length >= DOCUMENT_LIMITS.filesPerChat) throw new RequestError("This conversation has reached its file limit. Use a new chat for another file.", 413);
+        if (totalFiles >= DOCUMENT_LIMITS.filesPerChat) throw new RequestError("This conversation has reached its file limit. Use a new chat for another file.", 413);
         // Leave space for the tool result, final reply, and a later follow-up question.
         if (JSON.stringify(draft).length > remainingCharacters || new TextEncoder().encode(JSON.stringify(draft)).length > remainingBytes) throw new RequestError("This chat has little context space left. Ask for a smaller file or use a new chat.", 413);
         const bytes = await writeGeneratedFile(draft);

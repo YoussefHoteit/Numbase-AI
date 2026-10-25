@@ -9,7 +9,7 @@ declare session_owner uuid := (document_record->>'owner')::uuid; chat_id text :=
 begin
   perform pg_advisory_xact_lock(hashtextextended('numbase-document-reservations', 0));
   if (document_record->>'size')::bigint not between 1 and 20971520 or document_record->>'status' <> 'pending' then raise exception 'Invalid document'; end if;
-  if (select count(*) from public.numbase_documents where owner = session_owner and conversation_id = chat_id and not record ? 'removedAt') >= 8
+  if (select count(*) from public.numbase_documents where owner = session_owner and conversation_id = chat_id) >= 8
     or (select count(*) from public.numbase_documents where owner = session_owner and not record ? 'removedAt') >= 5
     or (select count(*) from public.numbase_documents) >= 25
     or (select count(*) from public.numbase_documents where owner = session_owner and created_at >= date_trunc('day', now())) >= 5

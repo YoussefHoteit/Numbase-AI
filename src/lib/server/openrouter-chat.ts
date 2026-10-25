@@ -44,7 +44,7 @@ export function streamOpenRouterResponse({
   modelMessages?: ModelMessage[];
   imageContext?: { owner: string; conversationId: string; turnId: string; allowedIds: string[]; selectedIds?: string[] };
   documentContext?: { owner: string; conversationId: string; allowedIds: string[] };
-  fileContext?: { owner: string; conversationId: string; turnId: string; allowedIds: string[]; sources?: { id: string; filename: string; version: number }[]; remainingCharacters?: number; remainingBytes?: number; selectedId?: string };
+  fileContext?: { owner: string; conversationId: string; turnId: string; allowedIds: string[]; sources?: { id: string; filename: string; version: number }[]; remainingCharacters?: number; remainingBytes?: number; totalFiles?: number; selectedId?: string };
 }) {
   const openrouter = createOpenRouter({ apiKey, fetch });
   let fileSaved = false;
