@@ -147,3 +147,15 @@ test("a removed attachment does not break ordinary chat or erase saved context",
   });
   assert.equal(response.status, 200); assert.match(await response.text(), /Summit/);
 });
+
+test("explicit summary resumes retain their job, completed sections and spending bound", async () => {
+ const {doc}=await readyFile(undefined,20);const {job}=await beginSummary(doc.owner,doc.id,"completion");
+ await summaryStep(doc.owner,doc.id,job.id,provider());
+ const running=(await getDocument(doc.owner,doc.id)).summary;
+ await changeSummary(doc.owner,doc.id,running,{...running,status:"failed",active:false,error:"Synthetic interruption"});
+ const before=(await getDocument(doc.owner,doc.id)).summary;
+ const resumed=await beginSummary(doc.owner,doc.id,"completion");
+ assert.equal(resumed.job.id,job.id);assert.equal(resumed.job.completedSections,16);assert.equal(resumed.job.reservedUsd,before.reservedUsd);
+ let seen=[];await summaryStep(doc.owner,doc.id,job.id,provider(prompt=>{if(prompt.sections)seen=prompt.sections.map(section=>section.index);}));
+ assert.deepEqual(seen,[16,17,18,19]);
+});

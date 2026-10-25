@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SUMMARY_MODEL = "google/gemini-2.5-flash-lite";
+export const SUMMARY_MODEL = "mistralai/mistral-small-3.2-24b-instruct";
 export const SUMMARY_LIMITS = { batch: 16, group: 8, noteCharacters: 5000, resultCharacters: 10_000, maxCostUsd: 0.50, staleMs: 10 * 60_000 } as const;
 const noteSchema = z.strictObject({ start: z.number().int().min(1).max(800), end: z.number().int().min(1).max(800), text: z.string().min(1).max(SUMMARY_LIMITS.noteCharacters) });
 export const summaryJobSchema = z.object({

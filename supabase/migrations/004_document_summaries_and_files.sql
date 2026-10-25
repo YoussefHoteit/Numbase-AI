@@ -49,12 +49,19 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('numbase-document-summary-budget', 0));
   select * into item from public.numbase_documents where id = file_id and owner = session_owner and conversation_id = chat_id for update;
   if not found or item.status <> 'ready' or item.record ? 'removedAt' then raise exception 'File unavailable'; end if;
-  if item.record->'summary'->>'status' in ('queued', 'processing', 'ready') then return item.record->'summary'; end if;
+  if item.record->'summary'->>'status' in ('queued', 'processing', 'ready') then return (item.record->'summary') || jsonb_build_object('_created', false); end if;
+  -- A user-requested resume keeps its job ID, completed sections and reserved cost.
+  -- Competing starts receive _created=false so only one workflow is launched.
+  if item.record->'summary'->>'status' in ('failed', 'cancelled') and item.record->'summary'->>'id' = summary_record->>'id' then
+    if (summary_record->>'revision')::int <> (item.record->'summary'->>'revision')::int + 1 then raise exception 'Invalid resume revision'; end if;
+    update public.numbase_documents set record = jsonb_set(record, '{summary}', summary_record) where id = file_id and owner = session_owner;
+    return summary_record || jsonb_build_object('_created', true);
+  end if;
   if (select count(*) from public.numbase_document_queries where kind = 'summary' and owner = session_owner and created_at >= date_trunc('day', now())) >= 1
     or (select count(*) from public.numbase_document_queries where kind = 'summary' and created_at >= date_trunc('day', now())) >= 2 then raise exception 'Summary quota reached'; end if;
   insert into public.numbase_document_queries(owner, kind) values (session_owner, 'summary');
   update public.numbase_documents set record = jsonb_set(record, '{summary}', summary_record) where id = file_id and owner = session_owner;
-  return summary_record;
+  return summary_record || jsonb_build_object('_created', true);
 end; $$;
 
 create function public.numbase_update_document_summary(session_owner uuid, file_id uuid, job_id uuid, expected_revision integer, summary_record jsonb)

@@ -41,13 +41,13 @@ export function DocumentSummary({ documentId, conversationId, filename, disabled
     <Dialog open={open} onOpenChange={setOpen}><DialogContent className="extraction-panel">
       <div className="extraction-heading"><DialogTitle>Complete document summary</DialogTitle><DialogDescription>{filename}</DialogDescription></div>
       <div className="extraction-body">
-        <p className="extraction-note">Reviews every indexed section in background steps, then combines the results. Gemini 2.5 Flash-Lite · Maximum $0.50 per job; usually less. One new job per browser/day and two globally/day. Opening a completed result is free.</p>
+        <p className="extraction-note">Reviews every indexed section in background steps, then combines the results. Mistral Small 3.2 · Maximum $0.50 per job, including explicit resumes; usually less. One new job per browser/day and two globally/day. Opening a completed result is free.</p>
         {running && <p role="status" className="extraction-progress"><Loader2 size={18} className="spin" />{state.completedSections ?? 0}/{state.totalSections ?? "…"} sections reviewed{state.completedSections === state.totalSections ? " · Combining the summary" : ""}. You can close this panel and return later.</p>}
         {state.result && <><p className="extraction-note">All {state.totalSections} indexed sections were reviewed. Summaries condense details; parser omissions and model mistakes can still occur.</p><MessageMarkdown text={state.result} /></>}
         {(error || state.error) && <p className="extraction-warning" role="alert">{error || state.error}</p>}
         {state.status === "cancelled" && <p>Summary cancelled. An already running provider request may still use credits.</p>}
       </div>
-      <div className="extraction-footer">{running ? <button disabled={busy} onClick={() => void action("cancel")}>Cancel summary</button> : state.status !== "ready" && <button disabled={busy} onClick={() => void action("start")}>{busy ? "Starting…" : state.status === "not-started" ? "Start complete summary" : "Start a new summary"}</button>}</div>
+      <div className="extraction-footer">{running ? <button disabled={busy} onClick={() => void action("cancel")}>Cancel summary</button> : state.status !== "ready" && <button disabled={busy} onClick={() => void action("start")}>{busy ? "Starting…" : state.status === "not-started" ? "Start complete summary" : "Resume summary"}</button>}</div>
     </DialogContent></Dialog>
   </>;
 }

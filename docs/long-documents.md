@@ -28,7 +28,7 @@ The initial reading stage did not include complete summaries; the completed work
 
 ## Complete summaries and file management
 
-Complete summary runs a durable background workflow with Gemini 2.5 Flash-Lite. Each step reads sixteen complete indexed sections, saves a bounded summary and checkpoints its coverage. Groups of eight section summaries are combined, followed by a final synthesis. The maximum supported 800-section file needs 58 model requests; events contain only IDs, while source notes remain in private document records. All sections are read before a result can become ready. This is full indexed-source coverage, not a guarantee that every fact survives condensation.
+Complete summary runs a durable background workflow with Mistral Small 3.2. Each step reads sixteen complete indexed sections, saves a bounded summary and checkpoints its coverage. Groups of eight section summaries are combined, followed by a final synthesis. The maximum supported 800-section file needs 58 model requests; events contain only IDs, while source notes remain in private document records. All sections are read before a result can become ready. This is full indexed-source coverage, not a guarantee that every fact survives condensation.
 
 A conservative UTF-8 input bound and output-token ceilings enforce a $0.50 job limit. OpenRouter provider price filters cap rates at $0.10/M input and $0.40/M output tokens; requests have no automatic retries. One new job per browser/day and two globally/day use the existing private query ledger. Cancellation and removal invalidate later writes by job ID and revision; an in-flight request may still incur cost. Stalled jobs become failed without silently replaying paid work.
 
@@ -36,4 +36,4 @@ Migration 004 extends the existing query-kind constraint and adds three server-o
 
 The file manager uses reversible removal. Removed originals remain private, preserve chat references, cannot be searched/downloaded/edited until restored, and free browser active-file slots. A row lock serializes restore/reservation quota checks. The eight-reference chat limit, global stored-file cap and daily upload caps still include removed files, so removal cannot bypass spending/storage guards. There is no automatic permanent purge. Background writes cannot revive removed records. Restoring an interrupted upload marks it failed and requires a fresh upload rather than an implicit retry.
 
-References: [Vercel Workflows](https://workflow-sdk.dev/docs/foundations/workflows-and-steps), [summary model](https://openrouter.ai/google/gemini-2.5-flash-lite).
+References: [Vercel Workflows](https://workflow-sdk.dev/docs/foundations/workflows-and-steps), [summary model](https://openrouter.ai/mistralai/mistral-small-3.2-24b-instruct).

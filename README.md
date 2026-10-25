@@ -32,7 +32,7 @@ Checks: npm run test:unit, npm run lint and npm run build. Detailed implementati
 | Image generation/editing | Gemini 3.1 Flash Image |
 | Embeddings | OpenAI text-embedding-3-small |
 | Structured extraction | GPT-4.1 Mini |
-| Complete summaries | Gemini 2.5 Flash-Lite |
+| Complete summaries | Mistral Small 3.2 |
 | File generation/editing | Selected chat model with server-side file writers |
 
 All provider requests go through OpenRouter using the server-only key.
@@ -40,7 +40,7 @@ All provider requests go through OpenRouter using the server-only key.
 ## Known limitations
 
 - Documents: 20 MB, 300 PDF pages, 2 million extracted characters, 50,000 spreadsheet rows/100 columns and 800 index sections. Scanned PDFs need OCR; complex layouts may lose structure. Spreadsheet formulas use saved values and are not recalculated.
-- Search and sampled overviews provide excerpts. Complete summaries review all indexed sections but condense details and can contain model mistakes. Parsing omissions still apply. Jobs are capped at $0.50 using conservative request bounds and provider price filters; oversized jobs are rejected before starting. Limits are one new summary per browser/day and two globally/day. Cancellation stops later steps; an in-flight request may still use credits. Failed paid steps are not retried automatically.
+- Search and sampled overviews provide excerpts. Complete summaries review all indexed sections but condense details and can contain model mistakes. Parsing omissions still apply. Jobs are capped at $0.50 using conservative request bounds and provider price filters; oversized jobs are rejected before starting. Limits are one new summary per browser/day and two globally/day. Cancellation stops later steps; an in-flight request may still use credits. Failed paid steps are not retried automatically. Explicit resumes reuse completed progress and retain the same cumulative spending cap.
 - Extraction handles one invoice or the first coherent table from up to 12 selected sections/32,000 characters, returning at most 40 rows/12 columns. Results state their source coverage. Values and user edits need review; quotes and schemas cannot guarantee semantic correctness. Extraction limits are three requests per browser/day and ten globally/day.
 - Generated drafts are limited to 24,000 characters, 100 rows/12 columns and 2 MB. Complete edits require a small source. Original layouts, macros, formulas, embedded objects, comments and signatures are not preserved. PDF script support is limited; unsupported text receives a Word alternative.
 - Storage allows five active files per browser, eight historical file references per chat and 25 stored files globally, with five/twenty new uploads per browser/globally each day. Removed files remain private and restorable, still count toward shared storage, and are not automatically purged. Daily upload allowances and the chat reference limit do not reset on removal. Start a new conversation after eight file references. Search limits are 100 per browser/day and 500 globally/day. Images retain their existing generation and size quotas.
