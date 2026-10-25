@@ -60,7 +60,7 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
     generated = generated.filter((fileId) => activeFiles.some((doc) => doc.id === fileId));
     let modelMessages = session && id ? await multimodalHistory(messages, session.owner, id, supportsImages(model), signal) : undefined;
     if (session && id && files.length) {
-      await waitForReadyDocuments(session.owner, id, files, signal);
+      await waitForReadyDocuments(session.owner, id, files, signal, 90_000);
       const recentQuestions = messages.filter((message) => message.role === "user").slice(-3).flatMap((message) => message.parts.flatMap((part) => part.type === "text" ? [part.text] : [])).join("\n");
       const matches = await retrieveDocuments(session.owner, id, files, recentQuestions || "Describe the attached files", signal);
       modelMessages = addDocumentContext(modelMessages ?? toModelMessages(messages), matches, await Promise.all(files.map(async (fileId) => {
