@@ -86,3 +86,24 @@ The public, no-login acceptance criterion remains outstanding while production i
 The protected production deployment passed upload, image description/OCR/comparison with Gemini 2.5 Flash-Lite and Claude Haiku 4.5, text/reference generation, editing, variations, regeneration, and original PNG download. Five successful generation jobs and their private asset records were checked: edits/variations targeted the selected version, and regeneration restored the original prompt and reference parameters. All five generated versions survived reload.
 
 A larger history revealed Mistral’s provider limit of five images per request. The application now checks this before making a provider call, explains the limit, and keeps all history for switching to another vision model. The regression suite includes this case and now passes 77 tests.
+
+
+## Project 4 final verification — 25 October 2026
+
+The public production application was extended in the same repository and Vercel Hobby project. Migration 004 reuses the existing private storage and document tables; summary and lifecycle flags are enabled in Production. Preview protection and server-only credentials remain in place.
+
+- 148 deterministic tests passed, with no failures or skips. Lint, TypeScript and the production build passed. The production dependency audit reported zero vulnerabilities.
+- Final production HTTP checks passed five validation/configuration tests. The protection-only and demo-stream tests were intentionally skipped on public live production; they did not send paid model requests.
+- Isolated HTTP/workflow tests passed upload/index/complete-summary, owned removal/restoration and ranged extraction checks with synthetic providers. PDF, DOCX, XLSX/CSV and code parsing, generated-file writers and ownership are covered by deterministic and isolated HTTP checks.
+- A live 1.32 MB, 260,018-word Markdown document indexed into 400 sections. A fresh upload answered an end-of-file invoice question on its first attempt. Complete summary resumed after a provider failure and finished all 400 sections without resetting its job or spending reservation. Its recorded conservative summary reservation was $0.1814721; this is an upper bound, not an account billing statement.
+- Live GPT-4.1 Mini extraction from sections 399–400 returned INV-2410, Numbase, USD and 1250. Actual JSON and Excel downloads retained values, evidence and selected-range coverage.
+- Mistral created a Word document; GPT-4.1 Mini edited a separate version. Both downloaded files were parsed back. The original contained EUR 1250; version 2 contained EUR 1400 and retained its marker. Downloading the original again produced the same SHA-256. Claude Haiku compared both files correctly after switching models and reloading.
+- GPT-4.1 Mini and Claude Haiku both read the same uploaded invoice image correctly. Model-triggered image creation and reference editing produced red and blue mugs; both real 1024×1024 PNG downloads were verified. These checks reused the existing image store and OpenRouter key.
+- Native clipboard paste and file drag/drop were checked against isolated current components using synthetic files; desktop/mobile summary and file-manager controls were exercised. Production at 390×844 had a 390px scroll width, visible download/edit controls and working file-manager navigation. These are browser emulations, not physical iOS/Android tests.
+- Existing conversations remained present. Temporary duplicate/generated test files were only reversibly removed; no permanent storage purge was performed. All 117 source hashes in the prior development copy remained unchanged. Final source and GitHub blob hashes were compared before closing the release.
+
+### Observed model limitations
+
+Gemini 2.5 Flash-Lite returned a provider rate limit during this verification; the UI exposed the error and another model remained usable. Mistral initially supplied an invalid file argument, which validation rejected before it created a corrected file. Model-written prose also included an incorrect download link; use the application-generated file card for downloads.
+
+The complete summary read every indexed section but omitted a factual marker in the middle and misstated some source structure. A focused read recovered EUR 1250 from lines 2501–2550. Coverage counters describe actual processing; they do not prove semantic completeness. Search, smaller explicit reads and review against originals remain necessary for precise facts.
