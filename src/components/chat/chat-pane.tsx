@@ -45,6 +45,7 @@ import { Brand } from "./brand";
 import { ImageMessages } from "./image-messages";
 import { useAttachments } from "./use-attachments";
 import { DocumentMessages } from "./document-messages";
+import { DocumentReading } from "./document-reading";
 import { imageResultSchema } from "@/lib/media";
 import { ExtractionMessages } from "./extraction-messages";
 import { messageContextSize, type Extraction } from "@/lib/extractions";
@@ -408,7 +409,8 @@ export function ChatPane({
                     </div>
                   )}
                   {message.role === "assistant" && <MessageMarkdown text={text} />}
-                  <DocumentMessages message={message} conversationId={conversation.id} busy={busy} allowExtraction={config?.extraction ?? false} onExtract={saveExtraction} />
+                  <DocumentMessages message={message} conversationId={conversation.id} busy={busy} allowExtraction={config?.extraction ?? false} allowSummaries={config?.summaries ?? false} onExtract={saveExtraction} />
+                  <DocumentReading message={message} />
                   <ExtractionMessages message={message} conversationId={conversation.id} busy={busy} onSave={saveExtraction} />
                   <GeneratedFiles message={message} busy={busy} onCheck={() => void checkFileStatus(message.id)} onEdit={(file) => {
                     setEditTarget(file);

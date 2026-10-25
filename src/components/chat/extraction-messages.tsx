@@ -11,6 +11,7 @@ export function ExtractionMessages({ message, conversationId, busy, onSave }: {
     <div className="extraction-result-card" key={index}>
       <div><Table2 size={20} /><strong>{part.data.kind === "invoice" ? "Invoice fields" : "Extracted table"}</strong></div>
       <p>{part.data.filename}</p><small>{part.data.edited ? "Includes your edits · " : ""}{part.data.kind === "table" ? `${part.data.data.rows.length} ${part.data.data.rows.length === 1 ? "row" : "rows"}` : `${Object.values(part.data.data.fields).filter((field) => field.value !== null).length} fields found`}{part.data.data.truncated ? " · Some data omitted" : ""}</small>
+      {part.data.scope && !part.data.scope.complete && <small>Sections {part.data.scope.start}–{part.data.scope.end} of {part.data.scope.totalSections} · Selected range only</small>}
       <ExtractionPanel documentId={part.data.documentId} conversationId={conversationId} filename={part.data.filename} initial={part.data} disabled={busy} onSave={(result) => onSave(result, message.id)} />
     </div>,
   ] : []);

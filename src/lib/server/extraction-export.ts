@@ -25,6 +25,7 @@ export async function extractionWorkbook(result: Extraction): Promise<Uint8Array
     ["Source file", result.filename], ["Extraction model", result.model],
     ["Review", "Review values against the original. Source quotes do not validate user edits. Numbers and dates are text, not recalculated values."],
     ["Edited", result.edited ? "Yes" : "No"], ["Rows omitted", result.data.truncated ? "Yes — review the source" : "Not reported by the model"],
+    ["Source coverage", result.scope ? `Sections ${result.scope.start}–${result.scope.end} of ${result.scope.totalSections} — ${result.scope.complete ? "whole indexed file" : "selected range only; other sections were not extracted"}` : "Coverage was not recorded for this older result."],
     ...result.data.warnings.map((warning) => ["Warning", warning]),
   ]);
   for (const tab of workbook.worksheets) {

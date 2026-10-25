@@ -26,15 +26,29 @@ export const tableDataSchema = z.strictObject({
   rows: z.array(z.strictObject({ cells: z.array(cell).max(EXTRACTION_LIMITS.columns), evidence: evidenceSchema })).max(EXTRACTION_LIMITS.rows),
   ...notes,
 });
+export const extractionRangeSchema = z.strictObject({
+  start: z.number().int().min(1).max(800), end: z.number().int().min(1).max(800),
+}).refine((range) => range.end >= range.start && range.end - range.start + 1 <= EXTRACTION_LIMITS.chunks, "Choose up to 12 consecutive sections.");
+const scopeSchema = z.strictObject({
+  start: z.number().int().min(1).max(800), end: z.number().int().min(1).max(800),
+  totalSections: z.number().int().min(1).max(800), complete: z.boolean(),
+});
 const context = {
   version: z.literal(1), documentId: z.uuid(), filename: z.string().min(1).max(160),
   model: z.literal(EXTRACTION_MODEL), createdAt: z.number().finite(), edited: z.boolean(), demo: z.boolean(),
+  scope: scopeSchema.optional(),
   sources: z.array(z.strictObject({ index: z.number().int().min(0).max(799), location: z.string().max(1000) })).min(1).max(EXTRACTION_LIMITS.chunks),
 };
 export const extractionSchema = z.discriminatedUnion("kind", [
   z.strictObject({ ...context, kind: z.literal("invoice"), data: invoiceDataSchema }),
   z.strictObject({ ...context, kind: z.literal("table"), data: tableDataSchema }),
 ]).superRefine((result, ctx) => {
+  if (result.scope) {
+    const { start, end, totalSections, complete } = result.scope;
+    if (end < start || end > totalSections || end - start + 1 !== result.sources.length ||
+      result.sources.some((source, i) => source.index !== start - 1 + i) || complete !== (start === 1 && end === totalSections))
+      ctx.addIssue({ code: "custom", message: "Extraction coverage does not match its source sections." });
+  }
   if (result.kind === "table" && result.data.rows.some((row) => row.cells.length !== result.data.columns.length))
     ctx.addIssue({ code: "custom", message: "Each row must match the table columns." });
   if (JSON.stringify(result).length > EXTRACTION_LIMITS.resultCharacters)
@@ -42,7 +56,7 @@ export const extractionSchema = z.discriminatedUnion("kind", [
 });
 export type Extraction = z.infer<typeof extractionSchema>;
 export const extractionPartSchema = z.strictObject({ type: z.literal("data-extraction"), data: extractionSchema });
-export const extractionRequestSchema = z.strictObject({ conversationId: z.string().min(1).max(128), kind: z.enum(["invoice", "table"]) });
+export const extractionRequestSchema = z.strictObject({ conversationId: z.string().min(1).max(128), kind: z.enum(["invoice", "table"]), range: extractionRangeSchema.optional() });
 
 export function extractionContext(result: Extraction) {
   const reviewedValues = result.kind === "invoice"
@@ -58,7 +72,7 @@ export function extractionContext(result: Extraction) {
     result.edited ? "Values include user edits. CURRENT_REVIEWED_VALUES contains the current reviewed values, not the original file values. ORIGINAL_SOURCE_EVIDENCE quotes the original file before these edits. A difference between them is intentional. Do not reverse these labels or claim the original file was changed." : "Values need human review. Source evidence quotes the original file.",
     JSON.stringify({ filename: result.filename, kind: result.kind, includesUserEdits: result.edited,
       CURRENT_REVIEWED_VALUES: reviewedValues, ORIGINAL_SOURCE_EVIDENCE: originalEvidence,
-      sources: result.sources, truncated: result.data.truncated, warnings: result.data.warnings }),
+      sources: result.sources, coverage: result.scope ?? "Legacy result: coverage not recorded", truncated: result.data.truncated, warnings: result.data.warnings }),
   ].join("\n");
 }
 

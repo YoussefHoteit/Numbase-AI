@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readDocumentInputSchema, documentReadResultSchema } from "./document-reading.ts";
 import { LEGACY_MODELS, MODELS, resolveModelId } from "./models.ts";
 import type { UIMessage } from "ai";
 import { assetIdFromUrl, imageTypeSchema, imageOperationSchema, imageResultSchema } from "./media.ts";
@@ -49,11 +50,18 @@ const readToolPart = z.discriminatedUnion("state", [
   z.object({ ...readToolBase, state: z.literal("output-available"), input: z.strictObject({ documentId: z.uuid() }), output: z.json() }),
   z.object({ ...readToolBase, state: z.literal("output-error"), input: z.json().default(null), rawInput: z.json().optional(), errorText: z.string().max(1000) }),
 ]);
+const documentReadBase = { type: z.literal("tool-readDocument"), toolCallId: z.string().min(1).max(128) };
+const documentReadPart = z.discriminatedUnion("state", [
+  z.object({ ...documentReadBase, state: z.literal("input-streaming"), input: z.json().optional(), rawInput: z.string().optional() }),
+  z.object({ ...documentReadBase, state: z.literal("input-available"), input: readDocumentInputSchema }),
+  z.object({ ...documentReadBase, state: z.literal("output-available"), input: readDocumentInputSchema, output: documentReadResultSchema }),
+  z.object({ ...documentReadBase, state: z.literal("output-error"), input: z.json().default(null), rawInput: z.json().optional(), errorText: z.string().max(1000) }),
+]);
 export const messageSchema = z.object({
   id: z.string().min(1).max(128),
   role: z.enum(["user", "assistant"]),
   parts: z
-    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart, extractionPartSchema, fileToolPart, readToolPart, fileEditPartSchema]))
+    .array(z.union([textPart, filePart, documentPartSchema, imageToolPart, extractionPartSchema, fileToolPart, readToolPart, fileEditPartSchema, documentReadPart]))
     .min(1)
     .max(20),
   metadata: metadataSchema.optional(),
@@ -106,4 +114,4 @@ export type Conversation = Omit<
   "messages"
 > & { messages: ChatMessage[] };
 
-export type ChatConfig = { demo: boolean; enabled: boolean; images?: boolean; documents?: boolean; extraction?: boolean; files?: boolean; generation?: boolean; storage?: "local" | "supabase" | "unavailable" };
+export type ChatConfig = { demo: boolean; enabled: boolean; images?: boolean; documents?: boolean; extraction?: boolean; files?: boolean; summaries?: boolean; lifecycle?: boolean; generation?: boolean; storage?: "local" | "supabase" | "unavailable" };

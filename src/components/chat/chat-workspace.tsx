@@ -35,6 +35,7 @@ import type { ChatConfig } from "@/lib/chat-schema";
 import { Brand } from "./brand";
 import { ChatPane } from "./chat-pane";
 import { WorkspaceSettings } from "./workspace-settings";
+import { FileManager } from "./file-manager";
 
 export function ChatWorkspace() {
   const state = useSyncExternalStore(
@@ -196,6 +197,7 @@ export function ChatWorkspace() {
         )}
       </nav>
       <div className="sidebar-bottom">
+        {config?.lifecycle && <FileManager />}
         <div className="workspace-note">
           <span className="note-icon">
             <Sparkles size={17} />

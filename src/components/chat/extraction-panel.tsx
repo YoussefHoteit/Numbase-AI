@@ -11,12 +11,16 @@ type Props = {
   filename: string;
   disabled: boolean;
   initial?: Extraction;
+  chunkCount?: number;
   onSave: (result: Extraction) => boolean;
 };
 
-export function ExtractionPanel({ conversationId, documentId, filename, disabled, initial, onSave }: Props) {
+export function ExtractionPanel({ conversationId, documentId, filename, disabled, initial, chunkCount, onSave }: Props) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<"invoice" | "table">("invoice");
+  const [useRange, setUseRange] = useState(false);
+  const [start, setStart] = useState("1");
+  const [end, setEnd] = useState(String(Math.min(chunkCount ?? 8, 8)));
   const [result, setResult] = useState<Extraction | null>(null);
   const [busy, setBusy] = useState<"extract" | "download" | null>(null);
   const [error, setError] = useState("");
@@ -29,13 +33,18 @@ export function ExtractionPanel({ conversationId, documentId, filename, disabled
     setOpen(next);
   }
   async function extract() {
+    const selectedRange = useRange || (chunkCount ?? 0) > EXTRACTION_LIMITS.chunks;
+    const range = selectedRange ? { start: Number(start), end: Number(end) } : undefined;
+    if (range && (!Number.isInteger(range.start) || !Number.isInteger(range.end) || range.start < 1 || range.end < range.start || range.end - range.start + 1 > EXTRACTION_LIMITS.chunks || range.end > (chunkCount ?? 800))) {
+      setError("Choose up to 12 consecutive sections within this file."); return;
+    }
     const controller = new AbortController();
     abort.current = controller;
     setBusy("extract"); setError("");
     try {
       const response = await fetch(`/api/documents/${documentId}/extract`, {
         method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-        body: JSON.stringify({ conversationId, kind }),
+        body: JSON.stringify({ conversationId, kind, ...(range ? { range } : {}) }),
       });
       if (!response.ok) throw new Error(await response.text());
       const next = extractionSchema.parse(await response.json());
@@ -93,9 +102,19 @@ export function ExtractionPanel({ conversationId, documentId, filename, disabled
               <label><input type="radio" name={`kind-${documentId}`} checked={kind === "table"} onChange={() => setKind("table")} />
                 <span><strong>A table</strong><small>Columns and rows, ready for a spreadsheet</small></span></label>
             </fieldset>
-            <p className="extraction-note">Uses GPT-4.1 Mini. One file at a time, up to 32,000 source characters and {EXTRACTION_LIMITS.rows} rows. Missing values stay empty. Extraction uses your provider allowance.</p>
+            <fieldset className="extraction-range" disabled={!!busy}>
+              <legend>Source coverage{chunkCount ? ` · ${chunkCount} sections` : ""}</legend>
+              <label><input type="checkbox" checked={useRange || (chunkCount ?? 0) > EXTRACTION_LIMITS.chunks} disabled={(chunkCount ?? 0) > EXTRACTION_LIMITS.chunks} onChange={(event) => setUseRange(event.target.checked)} />Choose a section range</label>
+              {(useRange || (chunkCount ?? 0) > EXTRACTION_LIMITS.chunks) && <div>
+                <label>From section<input type="number" min={1} max={chunkCount ?? 800} value={start} onChange={(event) => { setStart(event.target.value); setError(""); }} /></label>
+                <label>To section<input type="number" min={1} max={chunkCount ?? 800} value={end} onChange={(event) => { setEnd(event.target.value); setError(""); }} /></label>
+              </div>}
+              <small>Up to 12 sections per extraction. Section numbers refer to the file index, not page numbers. Ask the chat to locate a table or invoice first.</small>
+            </fieldset>
+            <p className="extraction-note">Uses GPT-4.1 Mini. One file or selected range at a time, up to 32,000 source characters and {EXTRACTION_LIMITS.rows} rows. Missing values stay empty. Extraction uses your provider allowance.</p>
           </> : <>
             <div className="extraction-status"><span>{view.kind === "invoice" ? "Invoice fields" : "Table"} · GPT-4.1 Mini</span><span>{view.edited ? "Includes your edits" : "Ready for review"}</span></div>
+            {view.scope && <p className="extraction-note">Sections {view.scope.start}–{view.scope.end} of {view.scope.totalSections} · {view.scope.complete ? "Whole indexed file" : "Selected range only; other sections were not extracted"}</p>}
             <p className="extraction-note">Check values against the original before using them. Quotes show the original evidence; they do not validate your edits. Amounts and dates keep their source formatting.</p>
             {view.data.truncated && <p className="extraction-warning" role="status">Some rows or columns were omitted. Review the original for the full table.</p>}
             {view.data.warnings.map((warning, index) => <p className="extraction-warning" key={index}>{warning}</p>)}

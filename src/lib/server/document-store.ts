@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename, readdir } from "node:fs/promises";
+import { setTimeout as pause } from "node:timers/promises";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -8,7 +9,7 @@ import { RequestError } from "./request.ts";
 
 const BUCKET = "numbase-documents";
 const localLocks = new Map<string, Promise<void>>();
-async function localLock<T>(key: string, action: () => Promise<T>): Promise<T> {
+export async function localDocumentLock<T>(key: string, action: () => Promise<T>): Promise<T> {
   const previous = localLocks.get(key) ?? Promise.resolve();
   let release!: () => void;
   const current = new Promise<void>((resolve) => { release = resolve; });
@@ -53,7 +54,15 @@ async function saveLocal(owner: string, id: string, suffix: string, value: unkno
   const filename = await localPath(owner, id, suffix);
   const temporary = `${filename}.${crypto.randomUUID()}.tmp`;
   await writeFile(temporary, JSON.stringify(value));
-  await rename(temporary, filename);
+  // Windows may briefly lock a snapshot while a status poll reads it. Retry only
+  // the atomic local replacement, never an upload, embedding or provider request.
+  for (let attempt = 0; ; attempt++) {
+    try { await rename(temporary, filename); break; }
+    catch (error) {
+      if (attempt === 4 || !["EPERM", "EACCES", "EBUSY"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+      await pause(25 * (attempt + 1));
+    }
+  }
 }
 export async function getDocument(owner: string, id: string, conversationId?: string): Promise<DocumentRecord> {
   validId(owner); validId(id);
@@ -70,15 +79,15 @@ export async function getDocument(owner: string, id: string, conversationId?: st
 export async function updateDocument(doc: DocumentRecord, expected?: DocumentStatus): Promise<boolean> {
   const db = documentClient();
   if (db) {
-    let query = db.from("numbase_documents").update({ record: doc, status: doc.status }).eq("id", doc.id).eq("owner", doc.owner);
+    let query = db.from("numbase_documents").update({ record: doc, status: doc.status }).eq("id", doc.id).eq("owner", doc.owner).is("record->removedAt", null);
     if (expected) query = query.eq("status", expected);
     const { data, error } = await query.select("id");
     if (error) throw new RequestError("Could not save document progress.", 503);
     return !!data?.length;
   }
-  return localLock(doc.id, async () => {
+  return localDocumentLock(doc.id, async () => {
     const current = await getDocument(doc.owner, doc.id);
-    if (expected && current.status !== expected) return false;
+    if (current.removedAt || (expected && current.status !== expected)) return false;
     await saveLocal(doc.owner, doc.id, "json", doc);
     return true;
   });
@@ -119,6 +128,7 @@ export async function writeGeneratedBytes(doc: DocumentRecord, bytes: Uint8Array
   if (error) throw new RequestError("Could not save the generated file. It will not be retried automatically.", 503);
 }
 export async function readDocumentBytes(doc: DocumentRecord): Promise<Buffer> {
+  assertDocumentActive(doc);
   const db = documentClient();
   if (!db) return readFile(await localPath(doc.owner, doc.id, "bin"));
   const { data, error } = await db.storage.from(BUCKET).download(storageKey(doc));
@@ -132,6 +142,7 @@ export async function saveLocalUpload(doc: DocumentRecord, bytes: Uint8Array) {
   await writeFile(await localPath(doc.owner, doc.id, "bin"), bytes, { flag: "wx" });
 }
 export async function documentDownload(doc: DocumentRecord) {
+  assertDocumentActive(doc);
   const db = documentClient();
   if (!db) return;
   const { data, error } = await db.storage.from(BUCKET).createSignedUrl(storageKey(doc), 60, { download: doc.filename });
@@ -139,7 +150,7 @@ export async function documentDownload(doc: DocumentRecord) {
   return data.signedUrl;
 }
 export function publicDocument(doc: DocumentRecord) {
-  return { id: doc.id, url: `/api/documents/${doc.id}`, filename: doc.filename, mediaType: DOCUMENT_TYPES[doc.kind], size: doc.size, status: doc.status, indexed: doc.indexed, chunkCount: doc.chunkCount, error: doc.error, warnings: doc.warnings ?? [] };
+  return { id: doc.id, url: `/api/documents/${doc.id}`, filename: doc.filename, mediaType: DOCUMENT_TYPES[doc.kind], size: doc.size, status: doc.removedAt ? "removed" : doc.status, removedAt: doc.removedAt, indexed: doc.indexed, chunkCount: doc.chunkCount, error: doc.error, warnings: doc.warnings ?? [] };
 }
 export type IndexedChunk = DocumentChunk & { embedding?: number[] };
 export async function saveChunks(doc: DocumentRecord, chunks: IndexedChunk[]) {
@@ -159,6 +170,7 @@ export async function saveChunks(doc: DocumentRecord, chunks: IndexedChunk[]) {
   }
 }
 export async function getChunks(doc: DocumentRecord, offset = 0, count = 16): Promise<IndexedChunk[]> {
+  assertDocumentActive(doc);
   const db = documentClient();
   if (!db) return (await localJSON<IndexedChunk[]>(doc.owner, doc.id, "chunks.json") ?? []).slice(offset, offset + count);
   const { data, error } = await db.from("numbase_document_chunks").select("chunk_index,location,content")
@@ -167,3 +179,45 @@ export async function getChunks(doc: DocumentRecord, offset = 0, count = 16): Pr
   return (data ?? []).map((row) => ({ index: row.chunk_index as number, location: row.location as string, text: row.content as string }));
 }
 export const documentChecksum = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+
+export function assertDocumentActive(doc: DocumentRecord) {
+  if (doc.removedAt || doc.purgedAt) throw new RequestError("This file was removed from the workspace. Restore it in Files to use its contents again.", 410);
+}
+export async function listDocuments(owner: string): Promise<DocumentRecord[]> {
+  validId(owner);
+  const db = documentClient();
+  if (db) {
+    const { data, error } = await db.from("numbase_documents").select("record").eq("owner", owner).order("created_at", { ascending: false }).limit(50);
+    if (error) throw new RequestError("Your files could not be loaded.", 503);
+    return (data ?? []).map((row) => row.record as DocumentRecord);
+  }
+  const directory = path.dirname(await localPath(owner, crypto.randomUUID(), "json"));
+  const names = (await readdir(directory)).filter((name) => /^[0-9a-f-]{36}\.json$/i.test(name));
+  return (await Promise.all(names.map((name) => getDocument(owner, name.slice(0, -5))))).sort((a, b) => b.createdAt - a.createdAt);
+}
+export async function setDocumentRemoved(owner: string, id: string, conversationId: string, removed: boolean) {
+  // Use the same scoped 404 as uploads/downloads before a quota-changing RPC.
+  await getDocument(owner, id, conversationId);
+  const db = documentClient();
+  if (db) {
+    const { data, error } = await db.rpc("numbase_set_document_removed", { session_owner: validId(owner), file_id: validId(id), chat_id: conversationId, remove_file: removed });
+    if (error) throw new RequestError(error.code === "P0001" ? "This file is processing, or the active-file limit prevents restoring it. Wait for processing to finish or remove another file." : "File management is not configured yet.", error.code === "P0001" ? 409 : 503);
+    return data as DocumentRecord;
+  }
+  return localDocumentLock(`remove-${owner}`, async () => {
+    const doc = await getDocument(owner, id, conversationId);
+    if (removed === !!doc.removedAt) return doc;
+    if (removed && ["queued", "processing"].includes(doc.status) && Date.now() - doc.createdAt < 10 * 60_000) throw new RequestError("Wait for processing to finish before removing this file.", 409);
+    if (!removed && (await listDocuments(owner)).filter((file) => !file.removedAt).length >= 5) throw new RequestError("Remove another file before restoring this one.", 409);
+    const next = { ...doc };
+    if (removed) {
+      next.removedAt = Date.now();
+      if (next.summary && ["queued", "processing"].includes(next.summary.status)) next.summary = { ...next.summary, status: "cancelled", active: false, revision: next.summary.revision + 1 };
+    } else {
+      delete next.removedAt;
+      if (["pending", "queued", "processing"].includes(next.status)) { next.status = "failed"; next.error = "Processing was interrupted. Upload a fresh copy to index it."; }
+    }
+    await saveLocal(owner, id, "json", next);
+    return next;
+  });
+}

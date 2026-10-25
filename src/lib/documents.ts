@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { FileDraft } from "./generated-files.ts";
+import type { SummaryJob } from "./document-summary.ts";
 
 export const DOCUMENT_LIMITS = {
   bytes: 20 * 1024 * 1024,
@@ -48,7 +49,7 @@ export const documentTicketSchema = z.object({
   filename: z.string().min(1).max(160),
   size: z.number().int().min(1).max(DOCUMENT_LIMITS.bytes),
 }).strict();
-export type DocumentStatus = "pending" | "queued" | "processing" | "ready" | "failed";
+export type DocumentStatus = "pending" | "queued" | "processing" | "ready" | "failed" | "removed";
 export type DocumentRecord = {
   id: string;
   owner: string;
@@ -64,6 +65,9 @@ export type DocumentRecord = {
   error?: string;
   warnings?: string[];
   generated?: { version: number; parentId: string | null; draft: FileDraft };
+  summary?: SummaryJob;
+  removedAt?: number;
+  purgedAt?: number;
 };
 export type DocumentSection = { location: string; text: string };
 export type DocumentChunk = DocumentSection & { index: number };

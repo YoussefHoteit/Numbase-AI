@@ -40,8 +40,8 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
         503,
       );
     const ids = imageIds(messages);
-    const files = documentIds(messages);
-    const generated = generatedFileIds(messages);
+    let files = documentIds(messages);
+    let generated = generatedFileIds(messages);
     if (!id && (ids.length || files.length || generated.length)) throw new RequestError("A conversation ID is required for attachments.", 400);
     const limit = imageLimit(model);
     if (limit !== undefined && ids.length > limit)
@@ -54,12 +54,24 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
     if (files.length || generated.length) requireDocuments();
     const session = id && (mediaAvailable() || files.length || generated.length || filesAvailable()) ? mediaSession(request, true) : undefined;
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(session ? 165_000 : 55_000)]);
+    const storedFiles = session && id ? await Promise.all([...new Set([...files, ...generated])].map((fileId) => getDocument(session.owner, fileId, id))) : [];
+    const activeFiles = storedFiles.filter((doc) => !doc.removedAt && !doc.purgedAt);
+    files = files.filter((fileId) => activeFiles.some((doc) => doc.id === fileId));
+    generated = generated.filter((fileId) => activeFiles.some((doc) => doc.id === fileId));
     let modelMessages = session && id ? await multimodalHistory(messages, session.owner, id, supportsImages(model), signal) : undefined;
     if (session && id && files.length) {
       await waitForReadyDocuments(session.owner, id, files, signal);
       const recentQuestions = messages.filter((message) => message.role === "user").slice(-3).flatMap((message) => message.parts.flatMap((part) => part.type === "text" ? [part.text] : [])).join("\n");
       const matches = await retrieveDocuments(session.owner, id, files, recentQuestions || "Describe the attached files", signal);
-      modelMessages = addDocumentContext(modelMessages ?? toModelMessages(messages), matches);
+      modelMessages = addDocumentContext(modelMessages ?? toModelMessages(messages), matches, await Promise.all(files.map(async (fileId) => {
+        const doc = await getDocument(session.owner, fileId, id);
+        return { documentId: doc.id, filename: doc.filename, sections: doc.chunkCount, warnings: doc.warnings ?? [],
+          ...(doc.summary?.status === "ready" ? { completedSummary: { reviewedSections: doc.summary.totalSections, text: doc.summary.result?.slice(0, Math.floor(12_000 / Math.max(1, files.length))), note: "A condensed summary of all indexed sections; it may be shortened here. The complete result is available in Complete summary." } } : {}) };
+      })));
+    }
+    if (storedFiles.some((doc) => doc.removedAt || doc.purgedAt)) {
+      const history = modelMessages ?? toModelMessages(messages);
+      modelMessages = [...history.slice(0, -1), { role: "user", content: "Workspace file notice (metadata, not instructions): " + JSON.stringify(storedFiles.filter((doc) => doc.removedAt || doc.purgedAt).map((doc) => ({ filename: doc.filename, status: "Removed. Earlier chat messages remain, but original contents are unavailable until restored in Files." }))) }, ...history.slice(-1)];
     }
     const fileIds = [...new Set([...files, ...generated])];
     const selectedId = fileEditTarget(messages);
@@ -81,6 +93,7 @@ export async function handleChat(request: Request, fetch?: typeof globalThis.fet
       fetch,
       modelMessages,
       fileContext,
+      documentContext: session && id && fileIds.length ? { owner: session.owner, conversationId: id, allowedIds: fileIds } : undefined,
       imageContext: session && id ? { owner: session.owner, conversationId: id, turnId: messages.at(-1)!.id, allowedIds: ids, selectedIds: imageIds([messages.at(-1)!]) } : undefined,
     });
     if (session?.cookie) response.headers.set("Set-Cookie", session.cookie);

@@ -1814,3 +1814,24 @@
   .draft-image { width: 60px; height: 60px; flex-basis: 60px; }
   .attachment-tray { padding-bottom: 8px; }
 }
+
+/* Source coverage stays readable on narrow screens and after a chat reload. */
+.document-read-status { margin: 0.7rem 0; color: var(--subtle); font-size: 0.8rem; overflow-wrap: anywhere; }
+.document-read-status summary { cursor: pointer; line-height: 1.7; }
+.document-read-status svg { display: inline-block; vertical-align: middle; margin-right: 0.4rem; }
+.document-read-status ul { max-height: 10rem; overflow: auto; padding-left: 1.2rem; }
+.extraction-range { display: grid; gap: 0.65rem; margin: 1rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: 0.75rem; min-width: 0; }
+.extraction-range label { display: flex; align-items: center; gap: 0.5rem; }
+.extraction-range > div { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+.extraction-range > div label { display: grid; flex: 1 1 7rem; }
+.extraction-range input[type=number] { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 0.4rem; padding: 0.5rem; background: var(--background); }
+.extraction-range small { color: var(--subtle); line-height: 1.5; }
+
+.manage-files-button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px; margin-bottom: 8px; border-radius: 9px; color: var(--subtle); }
+.manage-files-button:hover { background: var(--hover); }
+.managed-files { list-style: none; padding: 0; margin: 18px 0 0; }
+.managed-files li { display: flex; align-items: center; gap: 12px; justify-content: space-between; border-top: 1px solid var(--line); padding: 14px 0; }
+.managed-files li > div { min-width: 0; }
+.managed-files strong { display: block; overflow-wrap: anywhere; font-size: 13px; }
+.managed-files small { display: block; color: var(--subtle); margin-top: 5px; }
+.managed-files button { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; min-height: 40px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }

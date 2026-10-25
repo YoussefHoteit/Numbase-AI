@@ -1,12 +1,13 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import {
-  EXTRACTION_LIMITS, EXTRACTION_MODEL, extractionSchema, invoiceDataSchema, tableDataSchema,
+  EXTRACTION_LIMITS, EXTRACTION_MODEL, extractionRangeSchema, extractionSchema, invoiceDataSchema, tableDataSchema,
   type Extraction,
 } from "../extractions.ts";
 import type { DocumentChunk } from "../documents.ts";
 import { documentClient, getChunks, getDocument } from "./document-store.ts";
 import { RequestError } from "./request.ts";
+import { checkedSections } from "./document-reading.ts";
 import { modelErrorMessage } from "./model-errors.ts";
 
 const normalized = (text: string) => text.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
@@ -57,23 +58,25 @@ export function validateExtractionEvidence(result: Extraction, chunks: DocumentC
 }
 
 // Read every indexed section of a bounded file, never just its top search matches.
-export async function extractionSource(owner: string, conversationId: string, id: string) {
+export async function extractionSource(owner: string, conversationId: string, id: string, range?: { start: number; end: number }) {
   const doc = await getDocument(owner, id, conversationId);
   if (doc.status !== "ready") throw new RequestError("Wait until this file is ready before extracting data.", 409);
-  if (doc.chunkCount > EXTRACTION_LIMITS.chunks) throw new RequestError("This file is too large for structured extraction. Upload a smaller document or table; normal file questions still work.", 413);
-  const chunks = await getChunks(doc, 0, EXTRACTION_LIMITS.chunks);
-  if (!chunks.length || chunks.length !== doc.chunkCount || new Set(chunks.map((chunk) => chunk.index)).size !== doc.chunkCount)
-    throw new RequestError("Some source sections are unavailable. Check the file status before extracting.", 409);
+  if (range && (!extractionRangeSchema.safeParse(range).success || range.end > doc.chunkCount))
+    throw new RequestError("Choose a valid section range within this file, up to 12 sections.", 400);
+  if (!range && doc.chunkCount > EXTRACTION_LIMITS.chunks) throw new RequestError("This file is too large for one extraction. Choose up to 12 sections in Extract data; normal file questions still work.", 413);
+  const start = range?.start ?? 1;
+  const end = range?.end ?? doc.chunkCount;
+  const chunks = checkedSections(await getChunks(doc, start - 1, end - start + 1), start - 1, end - start + 1);
   if (chunks.reduce((sum, chunk) => sum + chunk.text.length, 0) > EXTRACTION_LIMITS.characters)
     throw new RequestError("This file is too large for structured extraction. Upload a smaller document or table.", 413);
-  return { doc, chunks };
+  return { doc, chunks, scope: { start, end, totalSections: doc.chunkCount, complete: start === 1 && end === doc.chunkCount } };
 }
 
-export async function extractDocument({ owner, conversationId, id, kind, signal, fetch }: {
-  owner: string; conversationId: string; id: string; kind: "invoice" | "table"; signal: AbortSignal; fetch?: typeof globalThis.fetch;
+export async function extractDocument({ owner, conversationId, id, kind, range, signal, fetch }: {
+  owner: string; conversationId: string; id: string; kind: "invoice" | "table"; range?: { start: number; end: number }; signal: AbortSignal; fetch?: typeof globalThis.fetch;
 }): Promise<Extraction> {
   signal.throwIfAborted();
-  const { doc, chunks } = await extractionSource(owner, conversationId, id);
+  const { doc, chunks, scope } = await extractionSource(owner, conversationId, id, range);
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) throw new RequestError("Structured extraction needs an OpenRouter connection. File upload and demo chat still work.", 503);
   signal.throwIfAborted();
@@ -91,10 +94,10 @@ export async function extractDocument({ owner, conversationId, id, kind, signal,
       "Copy values exactly as written, including number formatting. Do not calculate, normalize dates/currencies, infer missing fields, or invent values. Use null for missing values.",
       "For every non-null field and every row, provide a verbatim source quote containing its values and the source chunk index. A quote must fit within one supplied chunk. Use null evidence for missing fields.",
       "Spreadsheet source rows contain numbered column markers. Copy the complete original row as evidence, including those markers; do not reconstruct the row or remove decimal zeros from its values.",
-      "Extract one invoice or the first coherent table. If there are multiple invoices/tables, report this in warnings; do not silently merge them. Table headings may be descriptive when absent in the source.",
+      "Only the selected section range is supplied. Never imply that an extraction from a selected range covers the whole file. Extract one invoice or the first coherent table. If there are multiple invoices/tables, report this in warnings; do not silently merge them. Table headings may be descriptive when absent in the source.",
       `Return at most ${EXTRACTION_LIMITS.rows} rows and ${EXTRACTION_LIMITS.columns} columns. Set truncated=true and warn if anything is omitted by these limits. Do not claim completeness when uncertain.`,
     ].join(" "),
-    prompt: JSON.stringify({ filename: doc.filename, kind, sections: chunks }),
+    prompt: JSON.stringify({ filename: doc.filename, kind, coverage: scope, sections: chunks }),
     maxOutputTokens: 8000, maxRetries: 0,
     abortSignal: AbortSignal.any([signal, AbortSignal.timeout(85_000)]),
   };
@@ -106,7 +109,7 @@ export async function extractDocument({ owner, conversationId, id, kind, signal,
     const data = generated.output;
     const parsed = extractionSchema.safeParse({ version: 1, documentId: doc.id, filename: doc.filename,
       model: EXTRACTION_MODEL, createdAt: Date.now(), edited: false, demo: false,
-      sources: chunks.map((chunk) => ({ index: chunk.index, location: chunk.location })), kind, data });
+      scope, sources: chunks.map((chunk) => ({ index: chunk.index, location: chunk.location })), kind, data });
     if (!parsed.success) throw new RequestError("The extracted result is invalid or too large. Try a smaller table.", 502);
     validateExtractionEvidence(parsed.data, chunks);
     return parsed.data;

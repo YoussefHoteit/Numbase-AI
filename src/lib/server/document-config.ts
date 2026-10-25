@@ -20,6 +20,10 @@ export function requireExtractions() {
 export function filesAvailable() {
   return documentsAvailable() && process.env.NUMBASE_FILE_GENERATION_ENABLED === "true";
 }
+export function summariesAvailable() { return documentsAvailable() && process.env.NUMBASE_DOCUMENT_SUMMARIES_ENABLED === "true"; }
+export function lifecycleAvailable() { return documentsAvailable() && process.env.NUMBASE_DOCUMENT_LIFECYCLE_ENABLED === "true"; }
+export function requireSummaries() { if (!summariesAvailable()) throw new RequestError("Complete summaries are not enabled yet. File search still works.", 503); }
+export function requireLifecycle() { if (!lifecycleAvailable()) throw new RequestError("File management is not enabled yet.", 503); }
 export function requireFileGeneration() {
   if (!filesAvailable()) throw new RequestError("File generation is not enabled yet. Chat, file questions, and available image features still work.", 503);
 }

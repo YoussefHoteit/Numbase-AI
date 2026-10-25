@@ -64,3 +64,11 @@ Those provider/storage contract checks use synthetic data and mocks. Deployment-
 - [OpenRouter embeddings](https://openrouter.ai/docs/api/api-reference/embeddings/submit-an-embedding-request)
 - [Supabase RAG permissions](https://supabase.com/docs/guides/ai/rag-with-permissions)
 - [unpdf](https://github.com/unjs/unpdf), [mammoth](https://github.com/mwilliamson/mammoth.js), and [ExcelJS](https://github.com/exceljs/exceljs)
+
+## Long-document development stage — 25 October 2026
+
+Added bounded document-reading tools, explicit source coverage, full reads of chosen sections, and structured extraction from selected ranges of large files. Search now shares its source budget across attachments. See [long-document behavior and limits](long-documents.md). This stage is locally verified; production and real-provider checks are separate. Exhaustive multi-stage summaries and exact spreadsheet operations remain.
+
+## Completion release — 25 October 2026
+
+Complete background summaries, source-range extraction, bounded document reads and reversible file removal/restoration have been added. Summary steps checkpoint every indexed section, then combine the results. The final README describes current setup, supported features, models and limits. Earlier remaining-milestone lists above are historical; exact spreadsheet calculations and permanent automatic purge remain documented limitations rather than required release features. Final release evidence is recorded separately.

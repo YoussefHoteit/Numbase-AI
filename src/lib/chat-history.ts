@@ -3,6 +3,7 @@ import type { ChatMessage } from "./chat-schema.ts";
 import { assetIdFromUrl, imageResultSchema } from "./media.ts";
 import { documentIdFromUrl } from "./documents.ts";
 import { extractionContext } from "./extractions.ts";
+import { documentReadResultSchema } from "./document-reading.ts";
 
 export function snapshotTextMessages(
   messages: readonly ChatMessage[],
@@ -15,10 +16,15 @@ export function snapshotTextMessages(
       parts: message.parts.filter((part) =>
         part.type === "text" ||
         (part.type === "file" && (!!assetIdFromUrl(part.url) || !!documentIdFromUrl(part.url))) ||
-        part.type === "tool-createImage" || part.type === "data-extraction" || part.type === "tool-createFile" || part.type === "tool-readFileForEditing" || part.type === "data-file-edit",
+        part.type === "tool-createImage" || part.type === "data-extraction" || part.type === "tool-createFile" || part.type === "tool-readFileForEditing" || part.type === "data-file-edit" || part.type === "tool-readDocument",
       ).map((part) => {
         if (part.type === "text") return { type: "text" as const, text: part.text };
         if (part.type === "file") return { type: "file" as const, url: part.url, mediaType: part.mediaType, ...(part.filename ? { filename: part.filename } : {}) };
+        // Keep coverage and locations in history, but reload source text from owned storage.
+        if (part.type === "tool-readDocument" && part.state === "output-available") {
+          const result = documentReadResultSchema.parse(part.output);
+          return { ...part, output: { ...result, sections: result.sections.map((section) => ({ ...section, text: "" })) } };
+        }
         // Complete source text is needed only in the current tool loop, not every saved turn.
         if (part.type === "tool-readFileForEditing" && part.state === "output-available") return { ...part, output: { read: true } };
         return JSON.parse(JSON.stringify(part)) as typeof part;
