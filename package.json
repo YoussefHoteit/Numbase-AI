@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:api": "node --test tests/api.test.mjs",
-    "test:unit": "node --experimental-transform-types --test tests/model-errors.test.mjs tests/model-catalog.test.mjs tests/server-request.test.mjs tests/conversation-memory.test.mjs tests/multimodal.test.mjs tests/supabase-storage.test.mjs tests/media-optional.test.mjs tests/history-recovery.test.mjs tests/documents.test.mjs tests/document-storage.test.mjs tests/extractions.test.mjs tests/generated-files.test.mjs tests/file-storage.test.mjs tests/document-reading.test.mjs tests/document-completion.test.mjs",
+    "test:unit": "node --experimental-transform-types --test tests/model-errors.test.mjs tests/model-catalog.test.mjs tests/server-request.test.mjs tests/conversation-memory.test.mjs tests/multimodal.test.mjs tests/supabase-storage.test.mjs tests/media-optional.test.mjs tests/history-recovery.test.mjs tests/documents.test.mjs tests/document-storage.test.mjs tests/extractions.test.mjs tests/generated-files.test.mjs tests/file-storage.test.mjs tests/document-reading.test.mjs tests/document-completion.test.mjs tests/release-fixes.test.mjs",
     "test:images": "node --experimental-transform-types --test tests/multimodal.test.mjs",
     "test:media-api": "node --test tests/media-api.test.mjs",
     "test:memory": "node --experimental-transform-types --test tests/conversation-memory.test.mjs",

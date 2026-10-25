@@ -3,13 +3,15 @@ import { useEffect, useState } from "react";
 import { FileText, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { MessageMarkdown } from "./markdown";
+import type { SourceFact } from "@/lib/source-facts";
 
-type State = { status: "not-started" | "queued" | "processing" | "ready" | "failed" | "cancelled"; completedSections?: number; totalSections?: number; result?: string; error?: string };
+type State = { status: "not-started" | "queued" | "processing" | "ready" | "failed" | "cancelled"; completedSections?: number; totalSections?: number; result?: string; error?: string; sourceFacts?: SourceFact[]; canUpdate?: boolean };
 export function DocumentSummary({ documentId, conversationId, filename, disabled }: { documentId: string; conversationId: string; filename: string; disabled: boolean }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<State>({ status: "not-started" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     if (!open) return;
@@ -20,9 +22,9 @@ export function DocumentSummary({ documentId, conversationId, filename, disabled
         if (!response.ok) throw new Error(await response.text());
         const next: State = await response.json();
         if (controller.signal.aborted) return;
-        setState(next);
+        setState(next); setLoading(false);
         if (["queued", "processing"].includes(next.status)) timer = setTimeout(poll, 5000);
-      } catch (error) { if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Summary status unavailable."); }
+      } catch (error) { if (!controller.signal.aborted) { setError(error instanceof Error ? error.message : "Summary status unavailable."); setLoading(false); } }
     };
     void poll(); return () => { controller.abort(); clearTimeout(timer); };
   }, [open, documentId, conversationId, refresh]);
@@ -37,17 +39,18 @@ export function DocumentSummary({ documentId, conversationId, filename, disabled
   }
   const running = ["queued", "processing"].includes(state.status);
   return <>
-    <button type="button" disabled={disabled} onClick={() => setOpen(true)}><FileText size={14} />Complete summary</button>
+    <button type="button" disabled={disabled} onClick={() => { setLoading(true); setOpen(true); }}><FileText size={14} />Complete summary</button>
     <Dialog open={open} onOpenChange={setOpen}><DialogContent className="extraction-panel">
       <div className="extraction-heading"><DialogTitle>Complete document summary</DialogTitle><DialogDescription>{filename}</DialogDescription></div>
       <div className="extraction-body">
         <p className="extraction-note">Reviews every indexed section in background steps, then combines the results. Mistral Small 3.2 · Maximum $0.50 per job, including explicit resumes; usually less. One new job per browser/day and two globally/day. Opening a completed result is free.</p>
+        {loading && <p role="status">Checking saved summary…</p>}
         {running && <p role="status" className="extraction-progress"><Loader2 size={18} className="spin" />{state.completedSections ?? 0}/{state.totalSections ?? "…"} sections reviewed{state.completedSections === state.totalSections ? " · Combining the summary" : ""}. You can close this panel and return later.</p>}
-        {state.result && <><p className="extraction-note">All {state.totalSections} indexed sections were reviewed. Summaries condense details; parser omissions and model mistakes can still occur.</p><MessageMarkdown text={state.result} /></>}
+        {state.result && <><p className="extraction-note">All {state.totalSections} indexed sections were reviewed. Summaries condense details; parser omissions and model mistakes can still occur.</p>{!!state.sourceFacts?.length && <details className="summary-source-facts"><summary>Source-backed details ({state.sourceFacts.length})</summary><p className="extraction-note">Selected verbatim passages preserved separately from the generated summary. This is not an exhaustive extraction.</p>{state.sourceFacts.map((fact, index) => <blockquote key={index}><p>{fact.quote}</p><small>{filename} · {fact.location} · indexed section {fact.section}</small></blockquote>)}</details>}<MessageMarkdown text={state.result} /></>}
         {(error || state.error) && <p className="extraction-warning" role="alert">{error || state.error}</p>}
         {state.status === "cancelled" && <p>Summary cancelled. An already running provider request may still use credits.</p>}
       </div>
-      <div className="extraction-footer">{running ? <button disabled={busy} onClick={() => void action("cancel")}>Cancel summary</button> : state.status !== "ready" && <button disabled={busy} onClick={() => void action("start")}>{busy ? "Starting…" : state.status === "not-started" ? "Start complete summary" : "Resume summary"}</button>}</div>
+      <div className="extraction-footer">{running ? <button disabled={busy} onClick={() => void action("cancel")}>Cancel summary</button> : (state.status !== "ready" || state.canUpdate) && <button disabled={busy || loading} onClick={() => void action("start")}>{busy ? "Starting…" : loading ? "Checking…" : state.canUpdate ? "Update summary" : state.status === "not-started" ? "Start complete summary" : "Resume summary"}</button>}</div>
     </DialogContent></Dialog>
   </>;
 }

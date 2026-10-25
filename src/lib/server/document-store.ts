@@ -37,8 +37,8 @@ function validId(id: string) {
   if (!z.uuid().safeParse(id).success) throw new RequestError("Invalid document ID.", 400);
   return id;
 }
-function storageKey(doc: DocumentRecord) { return `${validId(doc.owner)}/${validId(doc.id)}/original`; }
-async function localPath(owner: string, id: string, suffix: string) {
+export function documentObjectKey(doc: DocumentRecord) { return `${validId(doc.owner)}/${validId(doc.id)}/original`; }
+export async function documentLocalFile(owner: string, id: string, suffix: string) {
   if (process.env.NODE_ENV === "production") throw new RequestError("Private document storage is not configured.", 503);
   const root = process.env.NUMBASE_DOCUMENT_DIRECTORY ?? path.join(process.cwd(), ".local-documents");
   const directory = path.join(/* turbopackIgnore: true */ root, validId(owner));
@@ -46,12 +46,12 @@ async function localPath(owner: string, id: string, suffix: string) {
   return path.join(/* turbopackIgnore: true */ directory, `${validId(id)}.${suffix}`);
 }
 async function localJSON<T>(owner: string, id: string, suffix: string): Promise<T | undefined> {
-  try { return JSON.parse(await readFile(await localPath(owner, id, suffix), "utf8")) as T; }
+  try { return JSON.parse(await readFile(await documentLocalFile(owner, id, suffix), "utf8")) as T; }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return; throw error; }
 }
 // This development-only backend writes whole snapshots atomically. Production uses row locks.
 async function saveLocal(owner: string, id: string, suffix: string, value: unknown) {
-  const filename = await localPath(owner, id, suffix);
+  const filename = await documentLocalFile(owner, id, suffix);
   const temporary = `${filename}.${crypto.randomUUID()}.tmp`;
   await writeFile(temporary, JSON.stringify(value));
   // Windows may briefly lock a snapshot while a status poll reads it. Retry only
@@ -85,7 +85,7 @@ export async function updateDocument(doc: DocumentRecord, expected?: DocumentSta
     if (error) throw new RequestError("Could not save document progress.", 503);
     return !!data?.length;
   }
-  return localDocumentLock(doc.id, async () => {
+  return localDocumentLock("remove-" + doc.owner, async () => {
     const current = await getDocument(doc.owner, doc.id);
     if (current.removedAt || (expected && current.status !== expected)) return false;
     await saveLocal(doc.owner, doc.id, "json", doc);
@@ -106,7 +106,7 @@ export async function reserveDocument(owner: string, conversationId: string, fil
     if (error) throw new RequestError("Document uploads have reached a storage or daily limit. Please try later.", 429);
   } else {
     // A deterministic generated-file ID may be claimed by only one concurrent request.
-    await writeFile(await localPath(owner, doc.id, "json"), JSON.stringify(doc), { flag: "wx" });
+    await writeFile(await documentLocalFile(owner, doc.id, "json"), JSON.stringify(doc), { flag: "wx" });
   }
   return doc;
 }
@@ -114,7 +114,7 @@ export async function newDocumentUpload(owner: string, conversationId: string, f
   const doc = await reserveDocument(owner, conversationId, filename, size);
   const db = documentClient();
   if (db) {
-    const { data, error: uploadError } = await db.storage.from(BUCKET).createSignedUploadUrl(storageKey(doc), { upsert: false });
+    const { data, error: uploadError } = await db.storage.from(BUCKET).createSignedUploadUrl(documentObjectKey(doc), { upsert: false });
     if (uploadError || !data) throw new RequestError("Could not start the private document upload.", 503);
     return { doc, uploadUrl: data.signedUrl };
   }
@@ -124,14 +124,14 @@ export async function writeGeneratedBytes(doc: DocumentRecord, bytes: Uint8Array
   if (doc.status !== "pending" || bytes.length !== doc.size) throw new RequestError("Invalid generated file reservation.", 400);
   const db = documentClient();
   if (!db) return saveLocalUpload(doc, bytes);
-  const { error } = await db.storage.from(BUCKET).upload(storageKey(doc), bytes, { contentType: DOCUMENT_TYPES[doc.kind], upsert: false });
+  const { error } = await db.storage.from(BUCKET).upload(documentObjectKey(doc), bytes, { contentType: DOCUMENT_TYPES[doc.kind], upsert: false });
   if (error) throw new RequestError("Could not save the generated file. It will not be retried automatically.", 503);
 }
 export async function readDocumentBytes(doc: DocumentRecord): Promise<Buffer> {
   assertDocumentActive(doc);
   const db = documentClient();
-  if (!db) return readFile(await localPath(doc.owner, doc.id, "bin"));
-  const { data, error } = await db.storage.from(BUCKET).download(storageKey(doc));
+  if (!db) return readFile(await documentLocalFile(doc.owner, doc.id, "bin"));
+  const { data, error } = await db.storage.from(BUCKET).download(documentObjectKey(doc));
   if (error || !data) throw new RequestError("The original file could not be loaded.", 503);
   if (data.size > DOCUMENT_LIMITS.bytes) throw new RequestError("This document is too large.", 413);
   return Buffer.from(await data.arrayBuffer());
@@ -139,18 +139,18 @@ export async function readDocumentBytes(doc: DocumentRecord): Promise<Buffer> {
 export async function saveLocalUpload(doc: DocumentRecord, bytes: Uint8Array) {
   if (process.env.NODE_ENV === "production" || documentClient()) throw new RequestError("Use the private signed upload URL.", 400);
   if (doc.status !== "pending" || bytes.length !== doc.size) throw new RequestError("This upload is already complete or its size does not match.", 400);
-  await writeFile(await localPath(doc.owner, doc.id, "bin"), bytes, { flag: "wx" });
+  await writeFile(await documentLocalFile(doc.owner, doc.id, "bin"), bytes, { flag: "wx" });
 }
 export async function documentDownload(doc: DocumentRecord) {
   assertDocumentActive(doc);
   const db = documentClient();
   if (!db) return;
-  const { data, error } = await db.storage.from(BUCKET).createSignedUrl(storageKey(doc), 60, { download: doc.filename });
+  const { data, error } = await db.storage.from(BUCKET).createSignedUrl(documentObjectKey(doc), 60, { download: doc.filename });
   if (error || !data) throw new RequestError("Could not create the private download.", 503);
   return data.signedUrl;
 }
 export function publicDocument(doc: DocumentRecord) {
-  return { id: doc.id, url: `/api/documents/${doc.id}`, filename: doc.filename, mediaType: DOCUMENT_TYPES[doc.kind], size: doc.size, status: doc.removedAt ? "removed" : doc.status, removedAt: doc.removedAt, indexed: doc.indexed, chunkCount: doc.chunkCount, error: doc.error, warnings: doc.warnings ?? [] };
+  return { id: doc.id, url: `/api/documents/${doc.id}`, filename: doc.filename, mediaType: DOCUMENT_TYPES[doc.kind], size: doc.size, status: doc.purgedAt ? "deleted" : doc.removedAt ? "removed" : doc.status, removedAt: doc.removedAt, purgedAt: doc.purgedAt, purgePendingAt: doc.purgePendingAt, purgeAfter: doc.generated ? doc.createdAt : doc.createdAt + 125 * 60_000, indexed: doc.indexed, chunkCount: doc.chunkCount, error: doc.error, warnings: doc.warnings ?? [] };
 }
 export type IndexedChunk = DocumentChunk & { embedding?: number[] };
 export async function saveChunks(doc: DocumentRecord, chunks: IndexedChunk[]) {
@@ -163,10 +163,13 @@ export async function saveChunks(doc: DocumentRecord, chunks: IndexedChunk[]) {
     })), { onConflict: "document_id,chunk_index" });
     if (error) throw new RequestError("Could not save document sections.", 503);
   } else {
-    const current = await localJSON<IndexedChunk[]>(doc.owner, doc.id, "chunks.json") ?? [];
-    const merged = new Map(current.map((chunk) => [chunk.index, chunk]));
-    chunks.forEach((chunk) => merged.set(chunk.index, { ...merged.get(chunk.index), ...chunk }));
-    await saveLocal(doc.owner, doc.id, "chunks.json", [...merged.values()].sort((a, b) => a.index - b.index));
+    await localDocumentLock("remove-" + doc.owner, async () => {
+      assertDocumentActive(await getDocument(doc.owner, doc.id, doc.conversationId));
+      const current = await localJSON<IndexedChunk[]>(doc.owner, doc.id, "chunks.json") ?? [];
+      const merged = new Map(current.map((chunk) => [chunk.index, chunk]));
+      chunks.forEach((chunk) => merged.set(chunk.index, { ...merged.get(chunk.index), ...chunk }));
+      await saveLocal(doc.owner, doc.id, "chunks.json", [...merged.values()].sort((a, b) => a.index - b.index));
+    });
   }
 }
 export async function getChunks(doc: DocumentRecord, offset = 0, count = 16): Promise<IndexedChunk[]> {
@@ -181,23 +184,25 @@ export async function getChunks(doc: DocumentRecord, offset = 0, count = 16): Pr
 export const documentChecksum = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 export function assertDocumentActive(doc: DocumentRecord) {
-  if (doc.removedAt || doc.purgedAt) throw new RequestError("This file was removed from the workspace. Restore it in Files to use its contents again.", 410);
+  if (doc.purgedAt) throw new RequestError("This file was permanently deleted. Its earlier chat messages remain.", 410);
+  if (doc.removedAt) throw new RequestError("This file was removed from the workspace. Restore it in Files to use its contents again.", 410);
 }
 export async function listDocuments(owner: string): Promise<DocumentRecord[]> {
   validId(owner);
   const db = documentClient();
   if (db) {
-    const { data, error } = await db.from("numbase_documents").select("record").eq("owner", owner).order("created_at", { ascending: false }).limit(50);
+    const { data, error } = await db.from("numbase_documents").select("record").eq("owner", owner).is("record->purgedAt", null).order("created_at", { ascending: false }).limit(50);
     if (error) throw new RequestError("Your files could not be loaded.", 503);
     return (data ?? []).map((row) => row.record as DocumentRecord);
   }
-  const directory = path.dirname(await localPath(owner, crypto.randomUUID(), "json"));
+  const directory = path.dirname(await documentLocalFile(owner, crypto.randomUUID(), "json"));
   const names = (await readdir(directory)).filter((name) => /^[0-9a-f-]{36}\.json$/i.test(name));
-  return (await Promise.all(names.map((name) => getDocument(owner, name.slice(0, -5))))).sort((a, b) => b.createdAt - a.createdAt);
+  return (await Promise.all(names.map((name) => getDocument(owner, name.slice(0, -5))))).filter((doc) => !doc.purgedAt).sort((a, b) => b.createdAt - a.createdAt);
 }
 export async function setDocumentRemoved(owner: string, id: string, conversationId: string, removed: boolean) {
   // Use the same scoped 404 as uploads/downloads before a quota-changing RPC.
-  await getDocument(owner, id, conversationId);
+  const target = await getDocument(owner, id, conversationId);
+  if (target.purgedAt || target.purgePendingAt) throw new RequestError("This file is permanently deleted or awaiting deletion cleanup; it cannot be restored.", 410);
   const db = documentClient();
   if (db) {
     const { data, error } = await db.rpc("numbase_set_document_removed", { session_owner: validId(owner), file_id: validId(id), chat_id: conversationId, remove_file: removed });
@@ -206,6 +211,7 @@ export async function setDocumentRemoved(owner: string, id: string, conversation
   }
   return localDocumentLock(`remove-${owner}`, async () => {
     const doc = await getDocument(owner, id, conversationId);
+    if (doc.purgedAt || doc.purgePendingAt) throw new RequestError("This file is permanently deleted or awaiting deletion cleanup.", 410);
     if (removed === !!doc.removedAt) return doc;
     if (removed && ["queued", "processing"].includes(doc.status) && Date.now() - doc.createdAt < 10 * 60_000) throw new RequestError("Wait for processing to finish before removing this file.", 409);
     if (!removed && (await listDocuments(owner)).filter((file) => !file.removedAt).length >= 5) throw new RequestError("Remove another file before restoring this one.", 409);
@@ -221,3 +227,6 @@ export async function setDocumentRemoved(owner: string, id: string, conversation
     return next;
   });
 }
+
+// Tombstone writes are used only after the owned removal/purge checks.
+export async function saveDocumentTombstone(doc: DocumentRecord) { await saveLocal(doc.owner, doc.id, "json", doc); }

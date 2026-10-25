@@ -3,8 +3,9 @@ import { mediaSession } from "@/lib/server/media-session";
 import { listDocuments, setDocumentRemoved, publicDocument } from "@/lib/server/document-store";
 import { readChatBody, RequestError } from "@/lib/server/request";
 import { z } from "zod";
+import { purgeDocument } from "@/lib/server/document-purge";
 
-const changeSchema = z.strictObject({ documentId: z.uuid(), conversationId: z.string().min(1).max(128), removed: z.boolean() });
+const changeSchema = z.union([z.strictObject({ documentId: z.uuid(), conversationId: z.string().min(1).max(128), removed: z.boolean() }), z.strictObject({ documentId: z.uuid(), conversationId: z.string().min(1).max(128), action: z.literal("purge"), confirmation: z.string().min(1).max(160) })]);
 export async function GET(request: Request) {
   try {
     requireLifecycle();
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     const body = changeSchema.safeParse(await readChatBody(request));
     if (!body.success) throw new RequestError("Choose a file to remove or restore.", 400);
     const { owner } = mediaSession(request);
-    const doc = await setDocumentRemoved(owner, body.data.documentId, body.data.conversationId, body.data.removed);
+    const doc = "action" in body.data ? await purgeDocument(owner, body.data.documentId, body.data.conversationId, body.data.confirmation) : await setDocumentRemoved(owner, body.data.documentId, body.data.conversationId, body.data.removed);
     return Response.json(publicDocument(doc), { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return documentError(error); }
 }

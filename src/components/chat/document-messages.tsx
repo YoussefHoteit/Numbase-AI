@@ -38,12 +38,12 @@ function DocumentCard({ url, filename, conversationId, busy, allowExtraction, al
   const processing = state && ["pending", "queued", "processing"].includes(state.status);
   return <div className="document-card">
     <div className="document-card-heading"><FileText size={23} /><div><strong title={filename}>{filename}</strong><small>
-      {error ? "File unavailable" : state?.status === "removed" ? "Removed · Restore in Files" : state?.status === "ready" ? `Ready · ${state.chunkCount} sections` : state?.status === "failed" ? "Processing failed" : processing ? `Preparing file${state.chunkCount ? ` · ${state.indexed}/${state.chunkCount} sections` : "…"}` : "Checking file…"}
+      {error ? "File unavailable" : state?.status === "deleted" ? "Permanently deleted" : state?.status === "removed" ? "Removed · Restore in Files" : state?.status === "ready" ? `Ready · ${state.chunkCount} sections` : state?.status === "failed" ? "Processing failed" : processing ? `Preparing file${state.chunkCount ? ` · ${state.indexed}/${state.chunkCount} sections` : "…"}` : "Checking file…"}
     </small></div>{processing && <Loader2 size={17} className="spin" />}</div>
     {(error || state?.error) && <p role="alert">{error || state?.error}</p>}
     {state?.warnings.map((warning) => <p className="document-warning" key={warning}>{warning}</p>)}
     <div className="document-card-actions"><button type="button" aria-label={`Refresh ${filename}`} onClick={() => setRetry((value) => value + 1)}><RefreshCw size={14} />Check status</button>
-      {state && state.status !== "removed" && <a href={`${url}?download=1`} download><Download size={14} />Original</a>}
+      {state && !["removed", "deleted"].includes(state.status) && <a href={`${url}?download=1`} download><Download size={14} />Original</a>}
       {allowSummaries && state?.status === "ready" && <DocumentSummary documentId={documentIdFromUrl(url)!} conversationId={conversationId} filename={filename} disabled={busy} />}
       {allowExtraction && state?.status === "ready" && <ExtractionPanel documentId={documentIdFromUrl(url)!} conversationId={conversationId} filename={filename} chunkCount={state.chunkCount} disabled={busy} onSave={onExtract} />}
     </div>

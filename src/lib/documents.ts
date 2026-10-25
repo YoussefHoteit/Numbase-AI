@@ -49,7 +49,7 @@ export const documentTicketSchema = z.object({
   filename: z.string().min(1).max(160),
   size: z.number().int().min(1).max(DOCUMENT_LIMITS.bytes),
 }).strict();
-export type DocumentStatus = "pending" | "queued" | "processing" | "ready" | "failed" | "removed";
+export type DocumentStatus = "pending" | "queued" | "processing" | "ready" | "failed" | "removed" | "deleted";
 export type DocumentRecord = {
   id: string;
   owner: string;
@@ -68,6 +68,7 @@ export type DocumentRecord = {
   summary?: SummaryJob;
   removedAt?: number;
   purgedAt?: number;
+  purgePendingAt?: number;
 };
 export type DocumentSection = { location: string; text: string };
 export type DocumentChunk = DocumentSection & { index: number };

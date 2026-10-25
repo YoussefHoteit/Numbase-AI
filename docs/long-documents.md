@@ -37,3 +37,11 @@ Migration 004 extends the existing query-kind constraint and adds three server-o
 The file manager uses reversible removal. Removed originals remain private, preserve chat references, cannot be searched/downloaded/edited until restored, and free browser active-file slots. A row lock serializes restore/reservation quota checks. The eight-reference chat limit, global stored-file cap and daily upload caps still include removed files, so removal cannot bypass spending/storage guards. There is no automatic permanent purge. Background writes cannot revive removed records. Restoring an interrupted upload marks it failed and requires a fresh upload rather than an implicit retry.
 
 References: [Vercel Workflows](https://workflow-sdk.dev/docs/foundations/workflows-and-steps), [summary model](https://openrouter.ai/mistralai/mistral-small-3.2-24b-instruct).
+
+## Evidence and cleanup update
+
+Summaries retain up to 64 selected verbatim passages, distributed across the source, separately from generated prose. Amounts, identifiers and other factual anchors are supplied to reductions and future file questions. These selected quotes are not exhaustive extraction. Finished legacy summaries can explicitly update only their synthesis using the same job, completed maps and cumulative spending cap.
+
+The file manager also supports permanent deletion after exact-filename confirmation. The server claims removal, deletes the private object via Storage API, then atomically clears chunks and stored drafts while retaining a minimal chat/daily-quota tombstone. Capacity is released only after successful cleanup; uncertain steps can be retried. Uploaded objects wait beyond the two-hour signed-ticket expiry before deletion. Parent-row checks serialize indexing writes with removal and purge. Daily/chat limits remain unchanged; permanently deleted tombstones stop counting toward the 25 retained-file cap. There is no automatic data purge.
+
+Model-authored download endpoints are not clickable. Generated-file messages use validated application cards for downloads while normal research source links remain available.

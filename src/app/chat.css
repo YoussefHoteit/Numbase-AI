@@ -1835,3 +1835,12 @@
 .managed-files strong { display: block; overflow-wrap: anywhere; font-size: 13px; }
 .managed-files small { display: block; color: var(--subtle); margin-top: 5px; }
 .managed-files button { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; min-height: 40px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+
+.managed-file-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.file-delete-confirmation label { display: block; margin: 20px 0 8px; }
+.file-delete-confirmation input { width: 100%; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--background); }
+.summary-source-facts { margin: 18px 0; }
+.summary-source-facts blockquote { margin: 12px 0; padding: 8px 12px; border-left: 2px solid var(--line); }
+.summary-source-facts small { color: var(--subtle); }
+.destructive-action { color: #c64040; }
+@media (max-width: 600px) { .managed-files li { align-items: flex-start; flex-direction: column; } .managed-file-actions { justify-content: flex-start; } }

@@ -408,7 +408,7 @@ export function ChatPane({
                       {message.metadata?.demo && <small>Demo</small>}
                     </div>
                   )}
-                  {message.role === "assistant" && <MessageMarkdown text={text} />}
+                  {message.role === "assistant" && <MessageMarkdown text={text} fileTurn={message.parts.some((part) => part.type === "tool-createFile" || part.type === "tool-readFileForEditing")} />}
                   <DocumentMessages message={message} conversationId={conversation.id} busy={busy} allowExtraction={config?.extraction ?? false} allowSummaries={config?.summaries ?? false} onExtract={saveExtraction} />
                   <DocumentReading message={message} />
                   <ExtractionMessages message={message} conversationId={conversation.id} busy={busy} onSave={saveExtraction} />
